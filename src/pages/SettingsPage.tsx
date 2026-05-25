@@ -1,27 +1,31 @@
 import { AlertTriangle, CheckCircle2, Cloud, Download, LogIn, LogOut, RefreshCcw, Upload } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { AccentColor, AppData, ThemeMode } from '../types'
 import { ACCENT_COLORS, SCHEMA_VERSION } from '../types'
 import type { AppActions } from '../hooks/useAppData'
 import {
   getCloudSession,
   loadCloudSave,
+  loadCloudSaveHistory,
   onCloudAuthChange,
   signInCloudAccount,
   signInWithGoogleAccount,
   signOutCloudAccount,
   signUpCloudAccount,
   uploadCloudSave,
+  type CloudSaveSnapshot,
 } from '../storage/cloudSave'
 import { exportReportFile } from '../storage/reportExport'
 import { exportSaveFile, importSaveFile } from '../storage/saveFile'
 import { isSupabaseConfigured, type CloudSession } from '../storage/supabaseClient'
 import { Modal } from '../components/Modal'
 import { addDaysISO, getTodayISO } from '../lib'
+import type { AutoCloudSaveState } from '../hooks/useAutoCloudSave'
 
 interface SettingsPageProps {
   data: AppData
   actions: AppActions
+  autoCloudSave: AutoCloudSaveState
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -41,6 +45,23 @@ const formatBackupDate = (date?: string) => {
   }
 
   return date
+}
+
+const getCloudVersionLabel = (snapshot: CloudSaveSnapshot) =>
+  snapshot.type === 'manual' ? '手动存档' : `自动存档 ${snapshot.key.replace('auto_backup_', '')}`
+
+const formatCloudDate = (date: string) => new Date(date).toLocaleString('zh-CN')
+
+const formatCountdown = (seconds: number | null) => {
+  if (seconds === null) {
+    return '等待数据变化'
+  }
+
+  const safeSeconds = Math.max(0, seconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const restSeconds = safeSeconds % 60
+
+  return `${minutes}:${restSeconds.toString().padStart(2, '0')}`
 }
 
 const countDuplicateOpenTasks = (tasks: AppData['tasks']) => {
@@ -63,7 +84,7 @@ const countDuplicateOpenTasks = (tasks: AppData['tasks']) => {
   return duplicates.size
 }
 
-export function SettingsPage({ data, actions }: SettingsPageProps) {
+export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [message, setMessage] = useState('当前存档已自动保存')
   const [isResetOpen, setIsResetOpen] = useState(false)
@@ -73,6 +94,7 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
   const [cloudPassword, setCloudPassword] = useState('')
   const [cloudBusy, setCloudBusy] = useState(false)
   const [cloudInfo, setCloudInfo] = useState('尚未检查云端存档')
+  const [cloudVersions, setCloudVersions] = useState<CloudSaveSnapshot[]>([])
   const today = getTodayISO()
   const backupInterval = data.settings.backupReminderIntervalDays
   const daysSinceBackup = data.settings.lastBackupAt
@@ -124,6 +146,40 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
     ]
   }, [data.longTermGoals, data.schemaVersion, data.tasks, today])
   const healthWarningCount = healthItems.filter((item) => item.count > 0).length
+  const cloudVersionSlots = useMemo(
+    () => [
+      {
+        key: 'manual',
+        label: '手动存档',
+        snapshot: cloudVersions.find((snapshot) => snapshot.key === 'manual'),
+      },
+      ...[1, 2, 3, 4].map((index) => ({
+        key: `auto_backup_${index}`,
+        label: `自动存档 ${index}`,
+        snapshot: cloudVersions.find((snapshot) => snapshot.key === `auto_backup_${index}`),
+      })),
+    ],
+    [cloudVersions],
+  )
+  const nextAutoCloudSlot = useMemo(() => {
+    const autoSnapshots = cloudVersions.filter((snapshot) => snapshot.type === 'auto_backup')
+    const usedSlots = new Set(autoSnapshots.map((snapshot) => Number(snapshot.key.replace('auto_backup_', ''))))
+    const missingSlot = [1, 2, 3, 4].find((slot) => !usedSlots.has(slot))
+
+    if (missingSlot) {
+      return missingSlot
+    }
+
+    const latest = [...autoSnapshots].sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))[0]
+
+    if (!latest) {
+      return 1
+    }
+
+    const latestSlot = Number(latest.key.replace('auto_backup_', ''))
+
+    return latestSlot >= 4 ? 1 : latestSlot + 1
+  }, [cloudVersions])
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -146,6 +202,10 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
 
     const unsubscribe = onCloudAuthChange((session) => {
       setCloudSession(session)
+
+      if (!session) {
+        setCloudVersions([])
+      }
     })
 
     return () => {
@@ -209,6 +269,38 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
     }
   }
 
+  const refreshCloudHistory = useCallback(async () => {
+    const history = await loadCloudSaveHistory()
+
+    setCloudVersions(history.versions)
+
+    return history
+  }, [])
+
+  useEffect(() => {
+    if (!cloudSession) {
+      return
+    }
+
+    let isMounted = true
+
+    loadCloudSaveHistory()
+      .then((history) => {
+        if (isMounted) {
+          setCloudVersions(history.versions)
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setCloudInfo(error instanceof Error ? error.message : '云存档历史读取失败。')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [cloudSession, data.settings.lastAutoCloudSaveAt])
+
   const submitCloudAuth = (mode: 'sign-up' | 'sign-in') => {
     runCloudAction(async () => {
       if (!cloudEmail.trim() || cloudPassword.length < 6) {
@@ -242,9 +334,28 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
   const handleCloudUpload = () => {
     runCloudAction(async () => {
       const updatedAt = await uploadCloudSave(data)
-      setCloudInfo(`云端存档已更新：${new Date(updatedAt).toLocaleString('zh-CN')}`)
+      await refreshCloudHistory()
+      setCloudInfo(`手动存档已更新：${formatCloudDate(updatedAt)}。自动存档槽位不会受到影响。`)
       setMessage('当前本地存档已上传到云端。')
     })
+  }
+
+  const restoreCloudSnapshotData = async (snapshot: CloudSaveSnapshot) => {
+    const confirmed = window.confirm(
+      `确认用「${getCloudVersionLabel(snapshot)}」覆盖当前本地存档？\n更新时间：${formatCloudDate(snapshot.updatedAt)}`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    actions.replaceData(snapshot.data)
+    setCloudInfo(`已从「${getCloudVersionLabel(snapshot)}」恢复：${formatCloudDate(snapshot.updatedAt)}`)
+    setMessage('已从云端恢复存档。')
+  }
+
+  const restoreCloudSnapshot = (snapshot: CloudSaveSnapshot) => {
+    runCloudAction(() => restoreCloudSnapshotData(snapshot))
   }
 
   const handleCloudDownload = () => {
@@ -257,23 +368,14 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
         return
       }
 
-      const confirmed = window.confirm(
-        `确认用云端存档覆盖当前本地存档？\n云端更新时间：${new Date(snapshot.updatedAt).toLocaleString('zh-CN')}`,
-      )
-
-      if (!confirmed) {
-        return
-      }
-
-      actions.replaceData(snapshot.data)
-      setCloudInfo(`已从云端恢复：${new Date(snapshot.updatedAt).toLocaleString('zh-CN')}`)
-      setMessage('已从云端恢复存档。')
+      await restoreCloudSnapshotData(snapshot)
     })
   }
 
   const handleCloudCheck = () => {
     runCloudAction(async () => {
-      const snapshot = await loadCloudSave()
+      const history = await refreshCloudHistory()
+      const snapshot = history.manual
 
       if (!snapshot) {
         setCloudInfo('云端还没有存档。')
@@ -281,7 +383,7 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
       }
 
       setCloudInfo(
-        `云端存档：v${snapshot.schemaVersion}，更新时间 ${new Date(snapshot.updatedAt).toLocaleString('zh-CN')}`,
+        `云端存档：v${snapshot.schemaVersion}，更新时间 ${formatCloudDate(snapshot.updatedAt)}，历史版本 ${history.versions.length} 个。`,
       )
     })
   }
@@ -290,6 +392,7 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
     runCloudAction(async () => {
       await signOutCloudAccount()
       setCloudSession(null)
+      setCloudVersions([])
       setCloudInfo('已退出云存档账号。')
       setMessage('已退出云存档账号。')
     })
@@ -417,7 +520,7 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
               <div>
                 <h3>云存档实验区</h3>
                 <p className="setting-note">
-                  第一版云功能只做手动上传和手动恢复，本地存档导入导出仍然保留。
+                  云端保留 1 个手动存档和 4 个自动备份；本地存档导入导出仍然保留。
                 </p>
               </div>
               <span className={`health-status ${cloudSession ? '' : 'needs-attention'}`}>
@@ -437,14 +540,46 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
                   <strong>{cloudSession.user.email || '云存档账号'}</strong>
                   <span>{cloudInfo}</span>
                 </div>
+                <div className="auto-cloud-panel">
+                  <label className="toggle-row">
+                    <div>
+                      <strong>自动云存档</strong>
+                      <span>
+                        默认开启，每 {data.settings.autoCloudSaveIntervalMinutes} 分钟检查一次；只循环覆盖自动存档 1-4，不影响手动存档。
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={data.settings.autoCloudSaveEnabled}
+                      onChange={(event) => actions.updateSettings({ autoCloudSaveEnabled: event.target.checked })}
+                    />
+                  </label>
+                  <div className="cloud-auto-meta">
+                    <span>状态：{autoCloudSave.status}</span>
+                    <span>倒计时：{autoCloudSave.isSaving ? '上传中' : formatCountdown(autoCloudSave.countdownSeconds)}</span>
+                    <span>上次自动存档：{data.settings.lastAutoCloudSaveAt ? formatCloudDate(data.settings.lastAutoCloudSaveAt) : '尚未自动存档'}</span>
+                    <span>下次写入：自动存档 {nextAutoCloudSlot}</span>
+                  </div>
+                  <div className="button-row">
+                    <button
+                      className="button button-ghost"
+                      type="button"
+                      onClick={autoCloudSave.runNow}
+                      disabled={!autoCloudSave.isSignedIn || autoCloudSave.isSaving || !data.settings.autoCloudSaveEnabled}
+                    >
+                      <Cloud size={16} />
+                      立即自动存档一次
+                    </button>
+                  </div>
+                </div>
                 <div className="button-row">
                   <button className="button button-primary" type="button" onClick={handleCloudUpload} disabled={cloudBusy}>
                     <Upload size={16} />
-                    上传当前存档
+                    上传手动存档
                   </button>
                   <button className="button button-ghost" type="button" onClick={handleCloudDownload} disabled={cloudBusy}>
                     <Download size={16} />
-                    从云端恢复
+                    恢复手动存档
                   </button>
                   <button className="button button-ghost" type="button" onClick={handleCloudCheck} disabled={cloudBusy}>
                     检查云端
@@ -453,6 +588,31 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
                     <LogOut size={16} />
                     退出登录
                   </button>
+                </div>
+                <div className="cloud-version-list">
+                  {cloudVersionSlots.map((slot) => (
+                    <div className={`cloud-version-item ${slot.snapshot ? '' : 'empty'}`} key={slot.key}>
+                      <div>
+                        <strong>{slot.label}</strong>
+                        {slot.snapshot ? (
+                          <span>
+                            更新时间：{formatCloudDate(slot.snapshot.updatedAt)} · schemaVersion v{slot.snapshot.schemaVersion}
+                          </span>
+                        ) : (
+                          <span>暂无存档</span>
+                        )}
+                      </div>
+                      <button
+                        className="button button-ghost"
+                        type="button"
+                        onClick={() => slot.snapshot && restoreCloudSnapshot(slot.snapshot)}
+                        disabled={cloudBusy || !slot.snapshot}
+                      >
+                        <Download size={15} />
+                        恢复
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (

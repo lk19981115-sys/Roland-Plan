@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 
 export const UNLIMITED_GOAL_TOTAL = 2147483647
 
@@ -103,6 +103,9 @@ export interface Settings {
   notificationsEnabled: boolean
   collapseCompletedTasks: boolean
   viewDensity: ViewDensity
+  autoCloudSaveEnabled: boolean
+  autoCloudSaveIntervalMinutes: number
+  lastAutoCloudSaveAt?: string
   lastBackupAt?: string
   backupReminderEnabled: boolean
   backupReminderIntervalDays: number

@@ -90,6 +90,18 @@ const normalizeReminderInterval = (value: unknown): number => {
   return Math.min(30, Math.max(1, Math.floor(value)))
 }
 
+const normalizeAutoCloudSaveInterval = (value: unknown): number => {
+  if (!isNumber(value)) {
+    return 5
+  }
+
+  return Math.min(60, Math.max(1, Math.floor(value)))
+}
+
+const isTimestampString = (value: unknown): value is string => {
+  return isString(value) && Number.isFinite(Date.parse(value))
+}
+
 const createMigrationId = (prefix: string): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
@@ -152,6 +164,10 @@ const getMigrationNotes = (fromVersion: number, toVersion: number): string[] => 
 
   if (fromVersion <= 5) {
     notes.push('为长期目标加入无上限累计模式，适合字数、页数、时长等持续记录。')
+  }
+
+  if (fromVersion <= 6) {
+    notes.push('加入自动云存档设置，支持默认开启的周期性云端自动备份。')
   }
 
   if (fromVersion === toVersion) {
@@ -261,6 +277,11 @@ const isSettings = (value: unknown): value is Settings => {
     isBoolean(value.collapseCompletedTasks) &&
     isString(value.viewDensity) &&
     VIEW_DENSITY_VALUES.includes(value.viewDensity) &&
+    isBoolean(value.autoCloudSaveEnabled) &&
+    isNumber(value.autoCloudSaveIntervalMinutes) &&
+    value.autoCloudSaveIntervalMinutes >= 1 &&
+    value.autoCloudSaveIntervalMinutes <= 60 &&
+    (value.lastAutoCloudSaveAt === undefined || isTimestampString(value.lastAutoCloudSaveAt)) &&
     (value.lastBackupAt === undefined || isDateString(value.lastBackupAt)) &&
     isBoolean(value.backupReminderEnabled) &&
     isNumber(value.backupReminderIntervalDays) &&
@@ -316,7 +337,7 @@ export const migrateSaveData = (data: unknown): AppData | null => {
 
   const sourceVersion = Number(data.schemaVersion)
 
-  if (![1, 2, 3, 4, 5, SCHEMA_VERSION].includes(sourceVersion)) {
+  if (![1, 2, 3, 4, 5, 6, SCHEMA_VERSION].includes(sourceVersion)) {
     return null
   }
 
@@ -341,6 +362,13 @@ export const migrateSaveData = (data: unknown): AppData | null => {
       isString(settingsSource.viewDensity) && VIEW_DENSITY_VALUES.includes(settingsSource.viewDensity)
         ? (settingsSource.viewDensity as Settings['viewDensity'])
         : 'comfortable',
+    autoCloudSaveEnabled: isBoolean(settingsSource.autoCloudSaveEnabled)
+      ? settingsSource.autoCloudSaveEnabled
+      : true,
+    autoCloudSaveIntervalMinutes: normalizeAutoCloudSaveInterval(settingsSource.autoCloudSaveIntervalMinutes),
+    lastAutoCloudSaveAt: isTimestampString(settingsSource.lastAutoCloudSaveAt)
+      ? settingsSource.lastAutoCloudSaveAt
+      : undefined,
     lastBackupAt: isDateString(settingsSource.lastBackupAt) ? settingsSource.lastBackupAt : undefined,
     backupReminderEnabled: isBoolean(settingsSource.backupReminderEnabled)
       ? settingsSource.backupReminderEnabled

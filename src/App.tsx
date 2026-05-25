@@ -5,6 +5,7 @@ import { Layout } from './components/Layout'
 import { OnboardingTour, type TourStep } from './components/OnboardingTour'
 import { WelcomeGate } from './components/WelcomeGate'
 import { useAppData } from './hooks/useAppData'
+import { useAutoCloudSave } from './hooks/useAutoCloudSave'
 import { useNotifications } from './hooks/useNotifications'
 import { TaskSelectionProvider } from './hooks/useTaskSelection'
 import { getTodayISO } from './lib'
@@ -323,6 +324,7 @@ function App() {
   const [shortcutEditingTaskId, setShortcutEditingTaskId] = useState<string | null>(null)
   const launchTimerRef = useRef<number | null>(null)
   const { addTask, deleteTask, postponeTaskToTomorrow, toggleTask, updateSettings, updateTask } = actions
+  const autoCloudSave = useAutoCloudSave(data, updateSettings)
   const shortcutEditingTask = data.tasks.find((task) => task.id === shortcutEditingTaskId)
   const effectiveSelectedTaskId =
     selectedTaskId && data.tasks.some((task) => task.id === selectedTaskId) ? selectedTaskId : null
@@ -625,12 +627,12 @@ function App() {
       case 'review':
         return <ReviewPage data={data} />
       case 'settings':
-        return <SettingsPage data={data} actions={actions} />
+        return <SettingsPage data={data} actions={actions} autoCloudSave={autoCloudSave} />
       case 'today':
       default:
         return <TodayPage data={data} actions={actions} onNavigate={setPage} />
     }
-  }, [actions, data, page])
+  }, [actions, autoCloudSave, data, page])
   const activeTour = activeTourId ? TOUR_DEFINITIONS[activeTourId] : null
 
   if (!hasEnteredApp) {
@@ -657,6 +659,7 @@ function App() {
         canRedo={actions.canRedo}
         onUndo={actions.undo}
         onRedo={actions.redo}
+        onReplaceData={actions.replaceData}
       >
         {pageContent}
       </Layout>

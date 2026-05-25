@@ -7,12 +7,42 @@ interface CloudSaveRow {
   app_data: unknown
   schema_version: number
   updated_at: string
+  backup_saves?: unknown
+}
+
+interface CloudAutoSaveRow {
+  id: string
+  slot_index: number
+  app_data: unknown
+  schema_version: number
+  updated_at: string
+}
+
+interface CloudBackupRow {
+  app_data: unknown
+  schema_version: number
+  updated_at: string
 }
 
 export interface CloudSaveSnapshot {
+  key: string
+  type: 'manual' | 'auto_backup'
   data: AppData
   updatedAt: string
   schemaVersion: number
+}
+
+export interface CloudSaveVersionSummary {
+  key: string
+  type: 'manual' | 'auto_backup'
+  updatedAt: string
+  schemaVersion: number
+}
+
+export interface CloudSaveHistory {
+  manual: CloudSaveSnapshot | null
+  backups: CloudSaveSnapshot[]
+  versions: CloudSaveSnapshot[]
 }
 
 const requireSupabase = () => {
@@ -50,9 +80,154 @@ const normalizeCloudSave = (row: CloudSaveRow | null): CloudSaveSnapshot | null 
   }
 
   return {
+    key: 'manual',
+    type: 'manual',
     data: migrated,
     updatedAt: row.updated_at,
     schemaVersion: row.schema_version,
+  }
+}
+
+const normalizeBackupSave = (backup: CloudBackupRow, index: number): CloudSaveSnapshot | null => {
+  const migrated = migrateSaveData(backup.app_data)
+
+  if (!migrated) {
+    return null
+  }
+
+  return {
+    key: `auto_backup_${index + 1}`,
+    type: 'auto_backup',
+    data: migrated,
+    updatedAt: backup.updated_at,
+    schemaVersion: backup.schema_version,
+  }
+}
+
+const isCloudBackupRow = (value: unknown): value is CloudBackupRow => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<CloudBackupRow>
+
+  return (
+    typeof candidate.updated_at === 'string' &&
+    typeof candidate.schema_version === 'number' &&
+    'app_data' in candidate
+  )
+}
+
+const parseBackupSaves = (value: unknown): CloudBackupRow[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter(isCloudBackupRow).slice(0, 4)
+}
+
+const normalizeAutoSave = (row: CloudAutoSaveRow): CloudSaveSnapshot | null => {
+  const migrated = migrateSaveData(row.app_data)
+
+  if (!migrated) {
+    return null
+  }
+
+  return {
+    key: `auto_backup_${row.slot_index}`,
+    type: 'auto_backup',
+    data: migrated,
+    updatedAt: row.updated_at,
+    schemaVersion: row.schema_version,
+  }
+}
+
+const fetchCloudSaveRow = async (userId: string): Promise<CloudSaveRow | null> => {
+  const client = requireSupabase()
+  const withBackups = await client
+    .from('user_saves')
+    .select('id, app_data, schema_version, updated_at, backup_saves')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<CloudSaveRow>()
+
+  if (!withBackups.error) {
+    return withBackups.data
+  }
+
+  const missingBackupColumn =
+    withBackups.error.code === '42703' || withBackups.error.message.includes('backup_saves')
+
+  if (!missingBackupColumn) {
+    throw new Error(withBackups.error.message)
+  }
+
+  const legacy = await client
+    .from('user_saves')
+    .select('id, app_data, schema_version, updated_at')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<CloudSaveRow>()
+
+  if (legacy.error) {
+    throw new Error(legacy.error.message)
+  }
+
+  return legacy.data
+}
+
+const fetchAutoSaveRows = async (userId: string): Promise<CloudAutoSaveRow[]> => {
+  const client = requireSupabase()
+  const { data, error } = await client
+    .from('user_auto_saves')
+    .select('id, slot_index, app_data, schema_version, updated_at')
+    .eq('user_id', userId)
+    .order('slot_index', { ascending: true })
+    .returns<CloudAutoSaveRow[]>()
+
+  if (error) {
+    const missingAutoSaveTable =
+      error.code === '42P01' || error.message.includes('user_auto_saves')
+
+    if (missingAutoSaveTable) {
+      throw new Error('自动云存档表尚未创建。请先在 Supabase SQL Editor 重新运行 supabase/user_saves.sql。')
+    }
+
+    throw new Error(error.message)
+  }
+
+  return data ?? []
+}
+
+const getNextAutoSlotIndex = (rows: CloudAutoSaveRow[]): number => {
+  const usedSlots = new Set(rows.map((row) => row.slot_index))
+  const missingSlot = [1, 2, 3, 4].find((slot) => !usedSlots.has(slot))
+
+  if (missingSlot) {
+    return missingSlot
+  }
+
+  const latest = [...rows].sort((first, second) => second.updated_at.localeCompare(first.updated_at))[0]
+
+  return latest.slot_index >= 4 ? 1 : latest.slot_index + 1
+}
+
+const getBackupHistory = (row: CloudSaveRow | null, autoRows: CloudAutoSaveRow[] = []): CloudSaveHistory => {
+  const manual = normalizeCloudSave(row)
+  const legacyBackups = parseBackupSaves(row?.backup_saves)
+    .map(normalizeBackupSave)
+    .filter((snapshot): snapshot is CloudSaveSnapshot => Boolean(snapshot))
+  const autoBackups = autoRows
+    .map(normalizeAutoSave)
+    .filter((snapshot): snapshot is CloudSaveSnapshot => Boolean(snapshot))
+  const backups = autoBackups.length > 0 ? autoBackups : legacyBackups
+
+  return {
+    manual,
+    backups,
+    versions: manual ? [manual, ...backups] : backups,
   }
 }
 
@@ -127,21 +302,26 @@ export const signOutCloudAccount = async () => {
 }
 
 export const loadCloudSave = async (): Promise<CloudSaveSnapshot | null> => {
-  const client = requireSupabase()
   const userId = await getCurrentUserId()
-  const { data, error } = await client
-    .from('user_saves')
-    .select('id, app_data, schema_version, updated_at')
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle<CloudSaveRow>()
+  const row = await fetchCloudSaveRow(userId)
 
-  if (error) {
-    throw new Error(error.message)
+  return normalizeCloudSave(row)
+}
+
+export const loadCloudSaveHistory = async (): Promise<CloudSaveHistory> => {
+  const userId = await getCurrentUserId()
+  const row = await fetchCloudSaveRow(userId)
+  let autoRows: CloudAutoSaveRow[] = []
+
+  try {
+    autoRows = await fetchAutoSaveRows(userId)
+  } catch (error) {
+    if (!(error instanceof Error && error.message.includes('自动云存档表尚未创建'))) {
+      throw error
+    }
   }
 
-  return normalizeCloudSave(data)
+  return getBackupHistory(row, autoRows)
 }
 
 export const uploadCloudSave = async (appData: AppData): Promise<string> => {
@@ -159,8 +339,43 @@ export const uploadCloudSave = async (appData: AppData): Promise<string> => {
     .upsert(payload, { onConflict: 'user_id' })
 
   if (error) {
+    if (error.code === '42703' || error.message.includes('backup_saves')) {
+      throw new Error('云存档历史字段尚未创建。请先在 Supabase SQL Editor 重新运行 supabase/user_saves.sql。')
+    }
+
     throw new Error(error.message)
   }
 
   return timestamp
+}
+
+export const uploadAutoCloudSave = async (appData: AppData): Promise<{ updatedAt: string; slotIndex: number }> => {
+  const client = requireSupabase()
+  const userId = await getCurrentUserId()
+  const rows = await fetchAutoSaveRows(userId)
+  const slotIndex = getNextAutoSlotIndex(rows)
+  const timestamp = new Date().toISOString()
+  const payload = {
+    user_id: userId,
+    slot_index: slotIndex,
+    app_data: appData,
+    schema_version: appData.schemaVersion,
+    updated_at: timestamp,
+  }
+  const { error } = await client
+    .from('user_auto_saves')
+    .upsert(payload, { onConflict: 'user_id,slot_index' })
+
+  if (error) {
+    const missingAutoSaveTable =
+      error.code === '42P01' || error.message.includes('user_auto_saves')
+
+    if (missingAutoSaveTable) {
+      throw new Error('自动云存档表尚未创建。请先在 Supabase SQL Editor 重新运行 supabase/user_saves.sql。')
+    }
+
+    throw new Error(error.message)
+  }
+
+  return { updatedAt: timestamp, slotIndex }
 }

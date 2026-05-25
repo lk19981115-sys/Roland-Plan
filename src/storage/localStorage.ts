@@ -11,6 +11,8 @@ export const DEFAULT_SETTINGS: Settings = {
   notificationsEnabled: false,
   collapseCompletedTasks: true,
   viewDensity: 'comfortable',
+  autoCloudSaveEnabled: true,
+  autoCloudSaveIntervalMinutes: 5,
   backupReminderEnabled: true,
   backupReminderIntervalDays: 7,
 }

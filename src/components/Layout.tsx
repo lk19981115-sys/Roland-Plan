@@ -17,6 +17,7 @@ import {
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { AppData, PageId } from '../types'
 import { Modal } from './Modal'
+import { UserMenu } from './UserMenu'
 
 interface LayoutProps {
   data: AppData
@@ -33,6 +34,7 @@ interface LayoutProps {
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
+  onReplaceData: (data: AppData) => void
 }
 
 const navItems: Array<{ id: PageId; label: string; icon: typeof CalendarCheck2 }> = [
@@ -79,6 +81,7 @@ export function Layout({
   canRedo,
   onUndo,
   onRedo,
+  onReplaceData,
 }: LayoutProps) {
   const openTasks = data.tasks.filter((task) => !task.completed).length
   const [quickTitle, setQuickTitle] = useState('')
@@ -230,7 +233,7 @@ export function Layout({
               <Search size={16} />
               搜索
             </button>
-            <span className="autosave-pill">当前存档已自动保存</span>
+            <UserMenu data={data} onReplaceData={onReplaceData} onNavigate={onNavigate} />
           </div>
         </header>
         <main key={currentPage} className="page page-transition">{children}</main>
