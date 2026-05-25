@@ -102,6 +102,21 @@ export const signInCloudAccount = async (email: string, password: string) => {
   return data.session
 }
 
+export const signInWithGoogleAccount = async () => {
+  const client = requireSupabase()
+  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined
+  const { error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
 export const signOutCloudAccount = async () => {
   const client = requireSupabase()
   const { error } = await client.auth.signOut()

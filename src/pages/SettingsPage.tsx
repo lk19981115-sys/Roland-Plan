@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Cloud, Download, LogOut, RefreshCcw, Upload } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Cloud, Download, LogIn, LogOut, RefreshCcw, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { AccentColor, AppData, ThemeMode } from '../types'
 import { ACCENT_COLORS, SCHEMA_VERSION } from '../types'
@@ -8,6 +8,7 @@ import {
   loadCloudSave,
   onCloudAuthChange,
   signInCloudAccount,
+  signInWithGoogleAccount,
   signOutCloudAccount,
   signUpCloudAccount,
   uploadCloudSave,
@@ -229,6 +230,13 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
   const handleCloudAuth = (mode: 'sign-up' | 'sign-in') => (event: FormEvent) => {
     event.preventDefault()
     submitCloudAuth(mode)
+  }
+
+  const handleGoogleSignIn = () => {
+    runCloudAction(async () => {
+      setCloudInfo('正在跳转到 Google 登录...')
+      await signInWithGoogleAccount()
+    })
   }
 
   const handleCloudUpload = () => {
@@ -468,6 +476,10 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
                   />
                 </label>
                 <div className="button-row">
+                  <button className="button button-ghost" type="button" onClick={handleGoogleSignIn} disabled={cloudBusy}>
+                    <LogIn size={16} />
+                    使用 Google 登录
+                  </button>
                   <button className="button button-primary" type="submit" disabled={cloudBusy}>
                     登录
                   </button>
