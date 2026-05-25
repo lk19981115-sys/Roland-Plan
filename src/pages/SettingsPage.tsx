@@ -1,10 +1,20 @@
-import { AlertTriangle, CheckCircle2, Download, RefreshCcw, Upload } from 'lucide-react'
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { AlertTriangle, CheckCircle2, Cloud, Download, LogOut, RefreshCcw, Upload } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { AccentColor, AppData, ThemeMode } from '../types'
 import { ACCENT_COLORS, SCHEMA_VERSION } from '../types'
 import type { AppActions } from '../hooks/useAppData'
+import {
+  getCloudSession,
+  loadCloudSave,
+  onCloudAuthChange,
+  signInCloudAccount,
+  signOutCloudAccount,
+  signUpCloudAccount,
+  uploadCloudSave,
+} from '../storage/cloudSave'
 import { exportReportFile } from '../storage/reportExport'
 import { exportSaveFile, importSaveFile } from '../storage/saveFile'
+import { isSupabaseConfigured, type CloudSession } from '../storage/supabaseClient'
 import { Modal } from '../components/Modal'
 import { addDaysISO, getTodayISO } from '../lib'
 
@@ -57,6 +67,11 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
   const [message, setMessage] = useState('当前存档已自动保存')
   const [isResetOpen, setIsResetOpen] = useState(false)
   const [resetConfirmText, setResetConfirmText] = useState('')
+  const [cloudSession, setCloudSession] = useState<CloudSession | null>(null)
+  const [cloudEmail, setCloudEmail] = useState('')
+  const [cloudPassword, setCloudPassword] = useState('')
+  const [cloudBusy, setCloudBusy] = useState(false)
+  const [cloudInfo, setCloudInfo] = useState('尚未检查云端存档')
   const today = getTodayISO()
   const backupInterval = data.settings.backupReminderIntervalDays
   const daysSinceBackup = data.settings.lastBackupAt
@@ -109,6 +124,35 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
   }, [data.longTermGoals, data.schemaVersion, data.tasks, today])
   const healthWarningCount = healthItems.filter((item) => item.count > 0).length
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      return
+    }
+
+    let isMounted = true
+
+    getCloudSession()
+      .then((session) => {
+        if (isMounted) {
+          setCloudSession(session)
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setCloudInfo(error instanceof Error ? error.message : '云存档状态读取失败。')
+        }
+      })
+
+    const unsubscribe = onCloudAuthChange((session) => {
+      setCloudSession(session)
+    })
+
+    return () => {
+      isMounted = false
+      unsubscribe()
+    }
+  }, [])
+
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
 
@@ -148,6 +192,99 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
   const handleReportExport = () => {
     exportReportFile(data)
     setMessage('Excel 报表已导出。')
+  }
+
+  const runCloudAction = async (action: () => Promise<void>) => {
+    setCloudBusy(true)
+
+    try {
+      await action()
+    } catch (error) {
+      const text = error instanceof Error ? error.message : '云存档操作失败，请稍后再试。'
+      setCloudInfo(text)
+      setMessage(text)
+    } finally {
+      setCloudBusy(false)
+    }
+  }
+
+  const submitCloudAuth = (mode: 'sign-up' | 'sign-in') => {
+    runCloudAction(async () => {
+      if (!cloudEmail.trim() || cloudPassword.length < 6) {
+        throw new Error('请输入邮箱，并使用至少 6 位密码。')
+      }
+
+      const session =
+        mode === 'sign-up'
+          ? await signUpCloudAccount(cloudEmail.trim(), cloudPassword)
+          : await signInCloudAccount(cloudEmail.trim(), cloudPassword)
+
+      setCloudSession(session)
+      setCloudPassword('')
+      setCloudInfo(mode === 'sign-up' && !session ? '注册成功，请先检查邮箱完成确认。' : '云存档账号已登录。')
+      setMessage(mode === 'sign-up' && !session ? '注册成功，请检查邮箱确认。' : '云存档账号已登录。')
+    })
+  }
+
+  const handleCloudAuth = (mode: 'sign-up' | 'sign-in') => (event: FormEvent) => {
+    event.preventDefault()
+    submitCloudAuth(mode)
+  }
+
+  const handleCloudUpload = () => {
+    runCloudAction(async () => {
+      const updatedAt = await uploadCloudSave(data)
+      setCloudInfo(`云端存档已更新：${new Date(updatedAt).toLocaleString('zh-CN')}`)
+      setMessage('当前本地存档已上传到云端。')
+    })
+  }
+
+  const handleCloudDownload = () => {
+    runCloudAction(async () => {
+      const snapshot = await loadCloudSave()
+
+      if (!snapshot) {
+        setCloudInfo('云端还没有存档。')
+        setMessage('云端还没有存档。')
+        return
+      }
+
+      const confirmed = window.confirm(
+        `确认用云端存档覆盖当前本地存档？\n云端更新时间：${new Date(snapshot.updatedAt).toLocaleString('zh-CN')}`,
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      actions.replaceData(snapshot.data)
+      setCloudInfo(`已从云端恢复：${new Date(snapshot.updatedAt).toLocaleString('zh-CN')}`)
+      setMessage('已从云端恢复存档。')
+    })
+  }
+
+  const handleCloudCheck = () => {
+    runCloudAction(async () => {
+      const snapshot = await loadCloudSave()
+
+      if (!snapshot) {
+        setCloudInfo('云端还没有存档。')
+        return
+      }
+
+      setCloudInfo(
+        `云端存档：v${snapshot.schemaVersion}，更新时间 ${new Date(snapshot.updatedAt).toLocaleString('zh-CN')}`,
+      )
+    })
+  }
+
+  const handleCloudSignOut = () => {
+    runCloudAction(async () => {
+      await signOutCloudAccount()
+      setCloudSession(null)
+      setCloudInfo('已退出云存档账号。')
+      setMessage('已退出云存档账号。')
+    })
   }
 
   const snoozeBackupReminder = () => {
@@ -265,6 +402,87 @@ export function SettingsPage({ data, actions }: SettingsPageProps) {
               </button>
             </div>
             <input ref={fileInputRef} className="visually-hidden" type="file" accept=".json" onChange={handleImport} />
+          </article>
+
+          <article className="setting-card setting-card-wide">
+            <div className="health-card-heading">
+              <div>
+                <h3>云存档实验区</h3>
+                <p className="setting-note">
+                  第一版云功能只做手动上传和手动恢复，本地存档导入导出仍然保留。
+                </p>
+              </div>
+              <span className={`health-status ${cloudSession ? '' : 'needs-attention'}`}>
+                <Cloud size={16} />
+                {cloudSession ? '已登录' : isSupabaseConfigured ? '未登录' : '未配置'}
+              </span>
+            </div>
+
+            {!isSupabaseConfigured ? (
+              <p className="setting-note">
+                当前还没有配置 Supabase 环境变量。请在本地或 Vercel 中填写 VITE_SUPABASE_URL 和
+                VITE_SUPABASE_ANON_KEY。
+              </p>
+            ) : cloudSession ? (
+              <div className="cloud-save-panel">
+                <div className="backup-status">
+                  <strong>{cloudSession.user.email || '云存档账号'}</strong>
+                  <span>{cloudInfo}</span>
+                </div>
+                <div className="button-row">
+                  <button className="button button-primary" type="button" onClick={handleCloudUpload} disabled={cloudBusy}>
+                    <Upload size={16} />
+                    上传当前存档
+                  </button>
+                  <button className="button button-ghost" type="button" onClick={handleCloudDownload} disabled={cloudBusy}>
+                    <Download size={16} />
+                    从云端恢复
+                  </button>
+                  <button className="button button-ghost" type="button" onClick={handleCloudCheck} disabled={cloudBusy}>
+                    检查云端
+                  </button>
+                  <button className="button button-ghost" type="button" onClick={handleCloudSignOut} disabled={cloudBusy}>
+                    <LogOut size={16} />
+                    退出登录
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form className="cloud-auth-form" onSubmit={handleCloudAuth('sign-in')}>
+                <label className="field">
+                  <span>邮箱</span>
+                  <input
+                    type="email"
+                    value={cloudEmail}
+                    onChange={(event) => setCloudEmail(event.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </label>
+                <label className="field">
+                  <span>密码</span>
+                  <input
+                    type="password"
+                    value={cloudPassword}
+                    onChange={(event) => setCloudPassword(event.target.value)}
+                    placeholder="至少 6 位"
+                  />
+                </label>
+                <div className="button-row">
+                  <button className="button button-primary" type="submit" disabled={cloudBusy}>
+                    登录
+                  </button>
+                  <button
+                    className="button button-ghost"
+                    type="button"
+                    onClick={() => submitCloudAuth('sign-up')}
+                    disabled={cloudBusy}
+                  >
+                    注册账号
+                  </button>
+                </div>
+                <p className="setting-note">{cloudInfo}</p>
+              </form>
+            )}
           </article>
 
           <article className="setting-card setting-card-wide">

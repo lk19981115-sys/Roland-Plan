@@ -1710,6 +1710,22 @@ textarea:focus {
   color: #9a3412;
 }
 
+.cloud-save-panel,
+.cloud-auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.cloud-auth-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+.cloud-auth-form .button-row,
+.cloud-auth-form .setting-note {
+  grid-column: 1 / -1;
+}
+
 .health-card-heading {
   display: flex;
   flex-wrap: wrap;
@@ -2299,6 +2315,7 @@ kbd {
   .filter-bar,
   .global-filter,
   .form-grid,
+  .cloud-auth-form,
   .settings-grid,
   .task-list.two-column,
   .goal-grid,
