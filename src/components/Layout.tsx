@@ -233,7 +233,7 @@ export function Layout({
             <span className="autosave-pill">当前存档已自动保存</span>
           </div>
         </header>
-        <main className="page">{children}</main>
+        <main key={currentPage} className="page page-transition">{children}</main>
       </div>
 
       <nav className="bottom-nav" aria-label="移动端导航" data-tour="nav">

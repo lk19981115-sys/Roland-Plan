@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Clock } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GlobalSearch } from './components/GlobalSearch'
 import { Layout } from './components/Layout'
 import { OnboardingTour, type TourStep } from './components/OnboardingTour'
+import { WelcomeGate } from './components/WelcomeGate'
 import { useAppData } from './hooks/useAppData'
 import { useNotifications } from './hooks/useNotifications'
 import { TaskSelectionProvider } from './hooks/useTaskSelection'
@@ -15,11 +17,14 @@ import { ReviewPage } from './pages/ReviewPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TodayPage } from './pages/TodayPage'
 import { WeekPage } from './pages/WeekPage'
+import { getCloudSession, onCloudAuthChange } from './storage/cloudSave'
+import { isSupabaseConfigured } from './storage/supabaseClient'
 import type { PageId } from './types'
 
 type TourId = Exclude<PageId, 'settings'>
 
 const LEGACY_ONBOARDING_STORAGE_KEY = 'roland-plan-onboarding-v1'
+const ENTRY_GATE_STORAGE_KEY = 'roland-plan-entry-gate-v3'
 
 const getTourStorageKey = (tourId: TourId) => `roland-plan-tour-${tourId}-v1`
 
@@ -248,6 +253,34 @@ const isEditableShortcutTarget = (target: EventTarget | null): boolean => {
 
 const hasOpenDialog = () => Boolean(document.querySelector('[role="dialog"]'))
 
+const hasPassedEntryGate = () => {
+  try {
+    return localStorage.getItem(ENTRY_GATE_STORAGE_KEY) === 'entered'
+  } catch {
+    return false
+  }
+}
+
+const markEntryGatePassed = () => {
+  try {
+    localStorage.setItem(ENTRY_GATE_STORAGE_KEY, 'entered')
+  } catch {
+    // The app can still run in local mode if storage access is limited.
+  }
+}
+
+const hasCloudAuthCallbackParams = () => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return (
+    window.location.search.includes('code=') ||
+    window.location.hash.includes('access_token') ||
+    window.location.hash.includes('refresh_token')
+  )
+}
+
 const getVisibleTaskIds = (): string[] =>
   Array.from(document.querySelectorAll<HTMLElement>('[data-task-card="true"]'))
     .map((element) => element.dataset.taskId)
@@ -263,14 +296,32 @@ const scrollTaskIntoView = (taskId: string) => {
   })
 }
 
+function EntryLoadingScreen() {
+  return (
+    <div className="entry-loading-screen" aria-live="polite" aria-label="正在进入 Roland-Plan">
+      <div className="entry-loading-icon">
+        <Clock size={34} strokeWidth={1.9} />
+      </div>
+      <strong>Roland-Plan</strong>
+      <span>正在载入你的日程空间</span>
+      <div className="entry-progress" aria-hidden="true">
+        <i />
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const { data, actions } = useAppData()
   const [page, setPage] = useState<PageId>('today')
+  const [hasEnteredApp, setHasEnteredApp] = useState(hasPassedEntryGate)
+  const [isLaunchingApp, setIsLaunchingApp] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [activeTourId, setActiveTourId] = useState<TourId | null>(null)
   const [quickAddFocusSignal, setQuickAddFocusSignal] = useState(0)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [shortcutEditingTaskId, setShortcutEditingTaskId] = useState<string | null>(null)
+  const launchTimerRef = useRef<number | null>(null)
   const { addTask, deleteTask, postponeTaskToTomorrow, toggleTask, updateSettings, updateTask } = actions
   const shortcutEditingTask = data.tasks.find((task) => task.id === shortcutEditingTaskId)
   const effectiveSelectedTaskId =
@@ -292,7 +343,64 @@ function App() {
     })
   }, [addTask])
 
+  const enterApp = useCallback(() => {
+    if (launchTimerRef.current) {
+      window.clearTimeout(launchTimerRef.current)
+    }
+
+    setIsLaunchingApp(true)
+
+    launchTimerRef.current = window.setTimeout(() => {
+      markEntryGatePassed()
+      setHasEnteredApp(true)
+      setIsLaunchingApp(false)
+      launchTimerRef.current = null
+    }, 1100)
+  }, [])
+
   useNotifications(data, disableUnavailableNotifications)
+
+  useEffect(() => {
+    return () => {
+      if (launchTimerRef.current) {
+        window.clearTimeout(launchTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      return
+    }
+
+    let mounted = true
+    const shouldEnterAfterCloudRedirect = hasCloudAuthCallbackParams()
+
+    getCloudSession()
+      .then((session) => {
+        if (!mounted) {
+          return
+        }
+
+        if (session && shouldEnterAfterCloudRedirect) {
+          enterApp()
+        }
+      })
+      .catch(() => {
+        // If the session cannot be read, keep the entry page usable in local mode.
+      })
+
+    const unsubscribe = onCloudAuthChange((session) => {
+      if (session && shouldEnterAfterCloudRedirect) {
+        enterApp()
+      }
+    })
+
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
+  }, [enterApp])
 
   useEffect(() => {
     if (!isTourId(page) || activeTourId || isSearchOpen || shortcutEditingTaskId) {
@@ -524,6 +632,14 @@ function App() {
     }
   }, [actions, data, page])
   const activeTour = activeTourId ? TOUR_DEFINITIONS[activeTourId] : null
+
+  if (!hasEnteredApp) {
+    if (isLaunchingApp) {
+      return <EntryLoadingScreen />
+    }
+
+    return <WelcomeGate onContinueLocal={enterApp} onSignedIn={enterApp} />
+  }
 
   return (
     <TaskSelectionProvider value={{ selectedTaskId: effectiveSelectedTaskId, selectTask: setSelectedTaskId }}>
