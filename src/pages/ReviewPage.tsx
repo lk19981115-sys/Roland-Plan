@@ -194,17 +194,17 @@ export function ReviewPage({ data }: ReviewPageProps) {
               {visibleRows.length > 0 ? (
                 visibleRows.map((row) => (
                   <tr className={row.tasks.length > 0 ? 'has-completed' : ''} key={row.date}>
-                    <td>
+                    <td data-label="日期">
                       <strong>{row.date}</strong>
                     </td>
-                    <td>{row.weekday}</td>
-                    <td>
+                    <td data-label="星期">{row.weekday}</td>
+                    <td data-label="完成数量">
                       <span className="review-count">
                         <CheckCircle2 size={15} />
                         {row.tasks.length}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="已完成任务详情">
                       {row.tasks.length > 0 ? (
                         <ul className="review-task-list">
                           {row.tasks.map((task) => (
