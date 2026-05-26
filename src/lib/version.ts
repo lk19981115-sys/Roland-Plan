@@ -1,8 +1,18 @@
-export const APP_VERSION = '0.8.1'
+export const APP_VERSION = '0.8.2'
 
 export const APP_VERSION_LABEL = `Roland-Plan v${APP_VERSION}`
 
 export const RELEASE_NOTES = [
+  {
+    version: '0.8.2',
+    previousVersion: '0.8.1',
+    title: '移动端导航与日历打卡视图增强',
+    items: [
+      '移动端底部导航改为页面常驻，不需要滚动到页面底部也能切换页面。',
+      '周期任务的已打卡日期改为更明显的主题色状态，提升打卡历史辨识度。',
+      '日历格子新增“任务 x/y”和“打卡 x/y”统计，并在右侧显示当天具体周期打卡事项。',
+    ],
+  },
   {
     version: '0.8.1',
     previousVersion: '0.8.0',
