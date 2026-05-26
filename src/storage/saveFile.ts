@@ -16,6 +16,7 @@ const TASK_PRIORITY_VALUES = ['normal', 'important', 'must']
 const THEME_MODE_VALUES = ['light', 'dark', 'system']
 const ACCENT_COLOR_VALUES = ['blue', 'green', 'purple', 'gray', 'pink']
 const VIEW_DENSITY_VALUES = ['comfortable', 'compact']
+const APPEARANCE_STYLE_VALUES = ['minimal', 'relaxed']
 const SYNC_STATUS_VALUES = ['local', 'pending', 'synced', 'error']
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^\d{2}:\d{2}$/
@@ -170,6 +171,10 @@ const getMigrationNotes = (fromVersion: number, toVersion: number): string[] => 
     notes.push('加入自动云存档设置，支持默认开启的周期性云端自动备份。')
   }
 
+  if (fromVersion <= 7) {
+    notes.push('加入界面风格设置，支持简约和轻松纸质风格切换。')
+  }
+
   if (fromVersion === toVersion) {
     notes.push('修复当前版本存档结构缺失的字段。')
   }
@@ -273,6 +278,8 @@ const isSettings = (value: unknown): value is Settings => {
     THEME_MODE_VALUES.includes(value.themeMode) &&
     isString(value.accentColor) &&
     ACCENT_COLOR_VALUES.includes(value.accentColor) &&
+    isString(value.appearanceStyle) &&
+    APPEARANCE_STYLE_VALUES.includes(value.appearanceStyle) &&
     isBoolean(value.notificationsEnabled) &&
     isBoolean(value.collapseCompletedTasks) &&
     isString(value.viewDensity) &&
@@ -337,7 +344,7 @@ export const migrateSaveData = (data: unknown): AppData | null => {
 
   const sourceVersion = Number(data.schemaVersion)
 
-  if (![1, 2, 3, 4, 5, 6, SCHEMA_VERSION].includes(sourceVersion)) {
+  if (![1, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION].includes(sourceVersion)) {
     return null
   }
 
@@ -352,6 +359,10 @@ export const migrateSaveData = (data: unknown): AppData | null => {
       isString(settingsSource.accentColor) && ACCENT_COLOR_VALUES.includes(settingsSource.accentColor)
         ? (settingsSource.accentColor as Settings['accentColor'])
         : 'blue',
+    appearanceStyle:
+      isString(settingsSource.appearanceStyle) && APPEARANCE_STYLE_VALUES.includes(settingsSource.appearanceStyle)
+        ? (settingsSource.appearanceStyle as Settings['appearanceStyle'])
+        : 'minimal',
     notificationsEnabled: isBoolean(settingsSource.notificationsEnabled)
       ? settingsSource.notificationsEnabled
       : false,

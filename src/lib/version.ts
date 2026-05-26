@@ -1,8 +1,18 @@
-export const APP_VERSION = '0.8.2'
+export const APP_VERSION = '0.8.3'
 
 export const APP_VERSION_LABEL = `Roland-Plan v${APP_VERSION}`
 
 export const RELEASE_NOTES = [
+  {
+    version: '0.8.3',
+    previousVersion: '0.8.2',
+    title: '轻松纸质风格与中文手账字体',
+    items: [
+      '顶栏新增界面风格切换，可在“简约”和“轻松”之间切换，默认仍为简约。',
+      '新增轻松纸质风格，使用米黄色背景、暖白卡片和柔和配色，并适配移动端显示。',
+      '轻松风格引入中文手账字体优先级，降低中英文显示风格割裂感。',
+    ],
+  },
   {
     version: '0.8.2',
     previousVersion: '0.8.1',

@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 
 export const UNLIMITED_GOAL_TOTAL = 2147483647
 
@@ -15,6 +15,8 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 export type AccentColor = 'blue' | 'green' | 'purple' | 'gray' | 'pink'
 
 export type ViewDensity = 'comfortable' | 'compact'
+
+export type AppearanceStyle = 'minimal' | 'relaxed'
 
 export type PageId = 'today' | 'week' | 'goals' | 'recurring' | 'calendar' | 'review' | 'settings'
 
@@ -100,6 +102,7 @@ export interface LongTermGoalDraft {
 export interface Settings {
   themeMode: ThemeMode
   accentColor: AccentColor
+  appearanceStyle: AppearanceStyle
   notificationsEnabled: boolean
   collapseCompletedTasks: boolean
   viewDensity: ViewDensity
@@ -154,4 +157,9 @@ export const ACCENT_COLORS: Array<{ value: AccentColor; label: string }> = [
   { value: 'purple', label: '紫色' },
   { value: 'gray', label: '灰色' },
   { value: 'pink', label: '粉色' },
+]
+
+export const APPEARANCE_STYLES: Array<{ value: AppearanceStyle; label: string }> = [
+  { value: 'minimal', label: '简约' },
+  { value: 'relaxed', label: '轻松' },
 ]

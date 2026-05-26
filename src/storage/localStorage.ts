@@ -8,6 +8,7 @@ export const STORAGE_KEY = 'roland-plan-save-v1'
 export const DEFAULT_SETTINGS: Settings = {
   themeMode: 'light',
   accentColor: 'blue',
+  appearanceStyle: 'minimal',
   notificationsEnabled: false,
   collapseCompletedTasks: true,
   viewDensity: 'comfortable',

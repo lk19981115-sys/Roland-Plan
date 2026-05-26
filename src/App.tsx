@@ -599,13 +599,19 @@ function App() {
       root.dataset.theme = isDark ? 'dark' : 'light'
       root.dataset.accent = data.settings.accentColor
       root.dataset.density = data.settings.viewDensity
+      root.dataset.style = data.settings.appearanceStyle
     }
 
     applyTheme()
     media.addEventListener('change', applyTheme)
 
     return () => media.removeEventListener('change', applyTheme)
-  }, [data.settings.accentColor, data.settings.themeMode, data.settings.viewDensity])
+  }, [
+    data.settings.accentColor,
+    data.settings.appearanceStyle,
+    data.settings.themeMode,
+    data.settings.viewDensity,
+  ])
 
   const pageContent = useMemo(() => {
     switch (page) {
@@ -652,6 +658,7 @@ function App() {
         canRedo={actions.canRedo}
         onUndo={actions.undo}
         onRedo={actions.redo}
+        onAppearanceStyleChange={(appearanceStyle) => updateSettings({ appearanceStyle })}
         onReplaceData={actions.replaceData}
       >
         {pageContent}

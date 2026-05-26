@@ -1,6 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=LXGW+WenKai:wght@400;700&display=swap');
+
 :root {
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-body);
+  font-family: var(--font-body);
   color-scheme: light;
   --bg: #f6f7f9;
   --surface: #ffffff;
@@ -61,6 +64,76 @@
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
 }
 
+:root[data-style='relaxed'] {
+  --font-body:
+    "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", "FangSong", "Microsoft YaHei",
+    "PingFang SC", system-ui, sans-serif;
+  --font-display:
+    "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", "FangSong", "Microsoft YaHei",
+    "PingFang SC", system-ui, sans-serif;
+  --bg: #f7efdf;
+  --surface: #fffaf0;
+  --surface-soft: #f1e5cf;
+  --text: #2f2a24;
+  --muted: #8a7a64;
+  --muted-strong: #6f604d;
+  --line: #e5d2b3;
+  --danger: #b94f43;
+  --danger-soft: #fff0ea;
+  --shadow: 0 14px 30px rgba(108, 84, 52, 0.12);
+  --accent: #5f8f72;
+  --accent-strong: #4f7c62;
+  --accent-soft: #edf5e8;
+  --accent-line: #bfd8b8;
+}
+
+:root[data-style='relaxed'][data-accent='blue'] {
+  --accent: #5b7fbb;
+  --accent-strong: #496ca6;
+  --accent-soft: #edf3ff;
+  --accent-line: #bed0ef;
+}
+
+:root[data-style='relaxed'][data-accent='green'] {
+  --accent: #5f8f72;
+  --accent-strong: #4f7c62;
+  --accent-soft: #edf5e8;
+  --accent-line: #bfd8b8;
+}
+
+:root[data-style='relaxed'][data-accent='purple'] {
+  --accent: #8c74b8;
+  --accent-strong: #755da0;
+  --accent-soft: #f5f0ff;
+  --accent-line: #d8c9ef;
+}
+
+:root[data-style='relaxed'][data-accent='gray'] {
+  --accent: #7b756b;
+  --accent-strong: #625d55;
+  --accent-soft: #f0e9dc;
+  --accent-line: #d9c8aa;
+}
+
+:root[data-style='relaxed'][data-accent='pink'] {
+  --accent: #c06f8a;
+  --accent-strong: #a95772;
+  --accent-soft: #fff0f4;
+  --accent-line: #ecc1ce;
+}
+
+:root[data-style='relaxed'][data-theme='dark'] {
+  --bg: #1b1813;
+  --surface: #242018;
+  --surface-soft: #302a20;
+  --text: #f7efe1;
+  --muted: #c6b79c;
+  --muted-strong: #dfcfb1;
+  --line: #493d2d;
+  --danger-soft: #3c201c;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -76,6 +149,15 @@ body {
   background: var(--bg);
   color: var(--text);
   letter-spacing: 0;
+}
+
+:root[data-style='relaxed'] body {
+  background:
+    radial-gradient(circle at 18px 18px, rgba(132, 110, 72, 0.055) 1px, transparent 1.5px),
+    linear-gradient(90deg, rgba(132, 110, 72, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(132, 110, 72, 0.04) 1px, transparent 1px),
+    var(--bg);
+  background-size: 18px 18px, 38px 38px, 38px 38px, auto;
 }
 
 button,
@@ -99,6 +181,14 @@ h2,
 h3,
 p {
   margin: 0;
+}
+
+h1,
+h2,
+h3,
+.brand strong,
+.welcome-copy h1 {
+  font-family: var(--font-display);
 }
 
 .welcome-gate {
@@ -1229,6 +1319,43 @@ p {
   gap: 10px;
 }
 
+.appearance-style-control {
+  display: grid;
+  grid-template-columns: auto minmax(78px, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted-strong);
+}
+
+.appearance-style-control span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.appearance-style-control select {
+  width: 100%;
+  min-width: 78px;
+  height: 32px;
+  padding: 0 24px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.appearance-style-control:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
 .user-menu {
   position: relative;
 }
@@ -1477,6 +1604,69 @@ p {
 .panel {
   padding: 18px;
   box-shadow: var(--shadow);
+}
+
+:root[data-style='relaxed'] .sidebar,
+:root[data-style='relaxed'] .topbar,
+:root[data-style='relaxed'] .bottom-nav,
+:root[data-style='relaxed'] .panel,
+:root[data-style='relaxed'] .setting-card,
+:root[data-style='relaxed'] .goal-card,
+:root[data-style='relaxed'] .recurring-card,
+:root[data-style='relaxed'] .task-card,
+:root[data-style='relaxed'] .modal,
+:root[data-style='relaxed'] .user-popover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 44%),
+    var(--surface);
+}
+
+:root[data-style='relaxed'] .topbar {
+  background:
+    radial-gradient(circle at 12px 12px, rgba(132, 110, 72, 0.045) 1px, transparent 1.5px),
+    color-mix(in srgb, var(--bg) 86%, transparent);
+  background-size: 18px 18px, auto;
+}
+
+:root[data-style='relaxed'] .panel,
+:root[data-style='relaxed'] .setting-card,
+:root[data-style='relaxed'] .goal-card,
+:root[data-style='relaxed'] .recurring-card,
+:root[data-style='relaxed'] .task-card {
+  box-shadow:
+    0 10px 26px rgba(108, 84, 52, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
+}
+
+:root[data-style='relaxed'] .button,
+:root[data-style='relaxed'] .icon-button,
+:root[data-style='relaxed'] input,
+:root[data-style='relaxed'] select,
+:root[data-style='relaxed'] textarea,
+:root[data-style='relaxed'] .tag,
+:root[data-style='relaxed'] .priority,
+:root[data-style='relaxed'] .health-status {
+  border-radius: 8px;
+}
+
+:root[data-style='relaxed'] .task-card.is-completed {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-soft) 58%, var(--surface)), var(--surface));
+}
+
+:root[data-style='relaxed'] .habit-history span.checked,
+:root[data-style='relaxed'] .mini-check.checked,
+:root[data-style='relaxed'] .calendar-recurring-item.checked {
+  position: relative;
+}
+
+:root[data-style='relaxed'] .habit-history span.checked::after {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 5px;
+  content: '';
+  pointer-events: none;
 }
 
 .section-heading {
@@ -3688,6 +3878,32 @@ kbd {
 
   .user-trigger-copy {
     display: none;
+  }
+
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .appearance-style-control {
+    grid-template-columns: 1fr;
+    min-height: 40px;
+    padding: 4px 6px;
+  }
+
+  .appearance-style-control span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .appearance-style-control select {
+    min-width: 58px;
+    height: 30px;
+    padding: 0 18px 0 6px;
+    font-size: 13px;
   }
 
   .page {

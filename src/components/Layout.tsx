@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { APP_VERSION_LABEL } from '../lib'
-import type { AppData, PageId } from '../types'
+import { APPEARANCE_STYLES, type AppearanceStyle, type AppData, type PageId } from '../types'
 import { Modal } from './Modal'
 import { UserMenu } from './UserMenu'
 
@@ -35,6 +35,7 @@ interface LayoutProps {
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
+  onAppearanceStyleChange: (style: AppearanceStyle) => void
   onReplaceData: (data: AppData) => void
 }
 
@@ -82,6 +83,7 @@ export function Layout({
   canRedo,
   onUndo,
   onRedo,
+  onAppearanceStyleChange,
   onReplaceData,
 }: LayoutProps) {
   const openTasks = data.tasks.filter((task) => !task.completed).length
@@ -209,6 +211,20 @@ export function Layout({
             </button>
           </form>
           <div className="topbar-actions">
+            <label className="appearance-style-control" title="切换界面风格">
+              <span>风格</span>
+              <select
+                value={data.settings.appearanceStyle}
+                onChange={(event) => onAppearanceStyleChange(event.target.value as AppearanceStyle)}
+                aria-label="界面风格"
+              >
+                {APPEARANCE_STYLES.map((style) => (
+                  <option key={style.value} value={style.value}>
+                    {style.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="undo-redo-group" data-tour="undo-redo" aria-label="撤销与重做">
               <button
                 className="icon-button"
