@@ -1,12 +1,12 @@
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { AppData, Task } from '../types'
+import type { AppData, RecurringTask, Task } from '../types'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import { TaskCard } from '../components/TaskCard'
 import { TaskForm } from '../components/TaskForm'
 import type { AppActions } from '../hooks/useAppData'
-import { formatReadableDate, getMonthGridDates, getTodayISO, sortTasksByTime } from '../lib'
+import { formatReadableDate, getMonthGridDates, getTodayISO, getWeekId, sortTasksByTime } from '../lib'
 
 interface CalendarPageProps {
   data: AppData
@@ -19,6 +19,9 @@ const monthTitle = (date: Date) =>
     month: 'long',
   })
 
+const getRecurringKeyForDate = (task: RecurringTask, date: string) =>
+  task.type === 'daily' ? date : getWeekId(date)
+
 export function CalendarPage({ data, actions }: CalendarPageProps) {
   const today = getTodayISO()
   const [monthDate, setMonthDate] = useState(() => new Date())
@@ -29,6 +32,19 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
   const selectedTasks = useMemo(
     () => sortTasksByTime(data.tasks.filter((task) => task.date === selectedDate)),
     [data.tasks, selectedDate],
+  )
+  const selectedRecurringItems = useMemo(
+    () =>
+      data.recurringTasks.map((task) => {
+        const key = getRecurringKeyForDate(task, selectedDate)
+
+        return {
+          task,
+          key,
+          checked: task.completedKeys.includes(key),
+        }
+      }),
+    [data.recurringTasks, selectedDate],
   )
 
   const goToMonth = (offset: number) => {
@@ -73,9 +89,23 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
             const done = tasks.filter((task) => task.completed).length
             const open = tasks.length - done
             const must = tasks.filter((task) => task.priority === 'must' && !task.completed).length
+            const recurringItems = data.recurringTasks.map((task) => {
+              const key = getRecurringKeyForDate(task, date)
+
+              return {
+                task,
+                checked: task.completedKeys.includes(key),
+              }
+            })
+            const checkedRecurring = recurringItems.filter((item) => item.checked).length
+            const uncheckedRecurring = recurringItems.length - checkedRecurring
             const isCurrentMonth = Number(date.slice(5, 7)) === monthDate.getMonth() + 1
             const dayState =
-              tasks.length === 0 ? 'empty' : open === 0 ? 'all-done' : 'has-open'
+              tasks.length === 0 && recurringItems.length === 0
+                ? 'empty'
+                : open === 0 && uncheckedRecurring === 0
+                  ? 'all-done'
+                  : 'has-open'
 
             return (
               <button
@@ -87,10 +117,14 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
                 onClick={() => setSelectedDate(date)}
               >
                 <span>{Number(date.slice(8, 10))}</span>
-                {tasks.length > 0 ? (
+                {tasks.length > 0 || recurringItems.length > 0 ? (
                   <div className="calendar-density">
-                    <strong>{open} 待办</strong>
-                    <em>{done} 完成</em>
+                    {tasks.length > 0 ? <strong>任务 {done}/{tasks.length}</strong> : null}
+                    {recurringItems.length > 0 ? (
+                      <em className={checkedRecurring === recurringItems.length ? 'all-done' : ''}>
+                        打卡 {checkedRecurring}/{recurringItems.length}
+                      </em>
+                    ) : null}
                     {must > 0 ? <b>{must} 必做</b> : null}
                   </div>
                 ) : null}
@@ -140,6 +174,36 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
               <EmptyState title="这一天还没有任务" description="从选中日期新增，会自动进入同一套任务数据。" />
             )}
           </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading compact">
+            <div>
+              <p>{formatReadableDate(selectedDate)}</p>
+              <h2>周期打卡</h2>
+            </div>
+          </div>
+          {selectedRecurringItems.length > 0 ? (
+            <div className="calendar-recurring-list">
+              {selectedRecurringItems.map(({ task, key, checked }) => (
+                <button
+                  key={task.id}
+                  className={`calendar-recurring-item ${checked ? 'checked' : ''}`}
+                  type="button"
+                  onClick={() => actions.toggleRecurringTask(task.id, key)}
+                >
+                  {checked ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                  <span>
+                    <strong>{task.title}</strong>
+                    <small>{task.type === 'daily' ? '日常' : `周常 ${key}`}</small>
+                  </span>
+                  <em>{checked ? '已打卡' : '未打卡'}</em>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="这一天没有周期任务" description="在周期页新增日常或周常后，会显示在这里。" />
+          )}
         </section>
       </aside>
 

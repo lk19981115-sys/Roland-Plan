@@ -2265,9 +2265,10 @@ textarea:focus {
 }
 
 .mini-check.checked {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .mini-check span,
@@ -2284,6 +2285,11 @@ textarea:focus {
   font-size: 12px;
   font-style: normal;
   white-space: nowrap;
+}
+
+.mini-check.checked strong,
+.mini-check.checked span {
+  color: var(--accent-contrast);
 }
 
 .global-search {
@@ -2632,9 +2638,13 @@ textarea:focus {
 }
 
 .habit-history span.checked {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 800;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 8px 18px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .calendar-grid {
@@ -2680,7 +2690,7 @@ textarea:focus {
 
 .calendar-density {
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 
 .calendar-density em,
@@ -2689,6 +2699,32 @@ textarea:focus {
   font-size: 11px;
   font-style: normal;
   font-weight: 600;
+}
+
+.calendar-density strong,
+.calendar-density em {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 22px;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.calendar-density strong {
+  color: var(--accent);
+}
+
+.calendar-density em {
+  color: var(--muted-strong);
+}
+
+.calendar-density em.all-done {
+  border-color: color-mix(in srgb, #16a34a 40%, var(--line));
+  background: color-mix(in srgb, #16a34a 13%, var(--surface));
+  color: #15803d;
 }
 
 .calendar-density b {
@@ -2721,6 +2757,66 @@ textarea:focus {
 
 .calendar-day.muted-day {
   opacity: 0.48;
+}
+
+.calendar-recurring-list {
+  display: grid;
+  gap: 8px;
+}
+
+.calendar-recurring-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.calendar-recurring-item svg {
+  color: var(--muted);
+}
+
+.calendar-recurring-item span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.calendar-recurring-item strong,
+.calendar-recurring-item small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.calendar-recurring-item small,
+.calendar-recurring-item em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.calendar-recurring-item em {
+  white-space: nowrap;
+}
+
+.calendar-recurring-item.checked {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.calendar-recurring-item.checked svg,
+.calendar-recurring-item.checked small,
+.calendar-recurring-item.checked em {
+  color: var(--accent-contrast);
 }
 
 .settings-grid {
