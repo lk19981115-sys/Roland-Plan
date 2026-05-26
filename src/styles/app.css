@@ -3553,6 +3553,11 @@ kbd {
 }
 
 @media (max-width: 860px) {
+  .app-shell {
+    animation: none;
+    transform: none;
+  }
+
   .sidebar {
     display: none;
   }
@@ -3590,7 +3595,7 @@ kbd {
   }
 
   .page {
-    padding: 16px 14px 88px;
+    padding: 16px 14px calc(112px + env(safe-area-inset-bottom));
   }
 
   .panel {
@@ -3774,7 +3779,7 @@ kbd {
     position: fixed;
     z-index: 30;
     right: 10px;
-    bottom: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
     left: 10px;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
