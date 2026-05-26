@@ -8,7 +8,7 @@ import { useAppData } from './hooks/useAppData'
 import { useAutoCloudSave } from './hooks/useAutoCloudSave'
 import { useNotifications } from './hooks/useNotifications'
 import { TaskSelectionProvider } from './hooks/useTaskSelection'
-import { getTodayISO } from './lib'
+import { parseQuickTaskInput, type QuickTaskParseResult } from './lib'
 import { Modal } from './components/Modal'
 import { TaskForm } from './components/TaskForm'
 import { CalendarPage } from './pages/CalendarPage'
@@ -76,8 +76,8 @@ const TOUR_DEFINITIONS: Record<TourId, { id: TourId; steps: TourStep[] }> = {
       },
       {
         target: '[data-tour="quick-add"]',
-        title: '快速记录任务',
-        description: '在这里输入文字并回车，会直接新增为今日任务。也可以按 N 快速聚焦。',
+        title: '智能快速记录',
+        description: '输入“明天下午3点去银行”这类文字并回车，系统会先帮你填好新增任务卡片。也可以按 N 快速聚焦。',
         placement: 'bottom',
       },
       {
@@ -320,6 +320,7 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [activeTourId, setActiveTourId] = useState<TourId | null>(null)
   const [quickAddFocusSignal, setQuickAddFocusSignal] = useState(0)
+  const [quickTaskParseResult, setQuickTaskParseResult] = useState<QuickTaskParseResult | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [shortcutEditingTaskId, setShortcutEditingTaskId] = useState<string | null>(null)
   const launchTimerRef = useRef<number | null>(null)
@@ -333,17 +334,9 @@ function App() {
     updateSettings({ notificationsEnabled: false })
   }, [updateSettings])
 
-  const addQuickTodayTask = useCallback((title: string) => {
-    addTask({
-      title,
-      date: getTodayISO(),
-      noTime: true,
-      description: '',
-      tag: 'other',
-      priority: 'normal',
-      completed: false,
-    })
-  }, [addTask])
+  const openQuickTaskDraft = useCallback((input: string) => {
+    setQuickTaskParseResult(parseQuickTaskInput(input))
+  }, [])
 
   const enterApp = useCallback(() => {
     if (launchTimerRef.current) {
@@ -651,7 +644,7 @@ function App() {
         title={PAGE_TITLES[page]}
         onNavigate={setPage}
         onOpenSearch={() => setIsSearchOpen(true)}
-        onQuickAddTask={addQuickTodayTask}
+        onQuickAddTask={openQuickTaskDraft}
         quickAddFocusSignal={quickAddFocusSignal}
         canReplayTour={isTourId(page)}
         onReplayTour={replayCurrentTour}
@@ -676,6 +669,29 @@ function App() {
               setShortcutEditingTaskId(null)
             }}
             onCancel={() => setShortcutEditingTaskId(null)}
+          />
+        </Modal>
+      ) : null}
+      {quickTaskParseResult ? (
+        <Modal title="确认新增任务" onClose={() => setQuickTaskParseResult(null)}>
+          <div className="quick-parse-panel">
+            <span>智能识别</span>
+            <strong>{quickTaskParseResult.source}</strong>
+            <ul>
+              {quickTaskParseResult.messages.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </div>
+          <TaskForm
+            key={quickTaskParseResult.source}
+            initialDraft={quickTaskParseResult.draft}
+            submitLabel="新增任务"
+            onSubmit={(draft) => {
+              addTask(draft)
+              setQuickTaskParseResult(null)
+            }}
+            onCancel={() => setQuickTaskParseResult(null)}
           />
         </Modal>
       ) : null}

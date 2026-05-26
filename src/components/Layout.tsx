@@ -15,6 +15,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { APP_VERSION_LABEL } from '../lib'
 import type { AppData, PageId } from '../types'
 import { Modal } from './Modal'
 import { UserMenu } from './UserMenu'
@@ -49,7 +50,7 @@ const navItems: Array<{ id: PageId; label: string; icon: typeof CalendarCheck2 }
 
 const shortcutItems = [
   { keys: ['/'], action: '打开全局搜索' },
-  { keys: ['N'], action: '聚焦快速新增今日任务' },
+  { keys: ['N'], action: '聚焦智能快速新增' },
   { keys: ['Ctrl', 'Z'], action: '撤销最近一次数据操作' },
   { keys: ['Ctrl', 'Y'], action: '重做刚才撤销的操作' },
   { keys: ['Ctrl', 'Shift', 'Z'], action: '重做刚才撤销的操作' },
@@ -181,6 +182,7 @@ export function Layout({
             <span>当前存档已自动保存</span>
             <strong>{openTasks} 个未完成任务</strong>
           </div>
+          <span className="app-version-label">{APP_VERSION_LABEL}</span>
         </div>
       </aside>
 
@@ -198,11 +200,11 @@ export function Layout({
                 value={quickTitle}
                 onChange={(event) => setQuickTitle(event.target.value)}
                 onKeyDown={handleQuickKeyDown}
-                placeholder="快速新增今日任务"
-                aria-label="快速新增今日任务"
+                placeholder="输入：明天下午3点去银行"
+                aria-label="智能快速新增任务"
               />
             </label>
-            <button className="icon-button quick-add-submit" type="submit" aria-label="添加今日任务" title="添加今日任务">
+            <button className="icon-button quick-add-submit" type="submit" aria-label="解析并新增任务" title="解析并新增任务">
               <Plus size={17} />
             </button>
           </form>

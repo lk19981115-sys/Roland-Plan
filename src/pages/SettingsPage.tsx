@@ -19,7 +19,7 @@ import { exportReportFile } from '../storage/reportExport'
 import { exportSaveFile, importSaveFile } from '../storage/saveFile'
 import { isSupabaseConfigured, type CloudSession } from '../storage/supabaseClient'
 import { Modal } from '../components/Modal'
-import { addDaysISO, getTodayISO } from '../lib'
+import { addDaysISO, APP_VERSION_LABEL, getTodayISO, RELEASE_NOTES } from '../lib'
 import type { AutoCloudSaveState } from '../hooks/useAutoCloudSave'
 
 interface SettingsPageProps {
@@ -831,6 +831,32 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
               />
             </label>
             {!('Notification' in window) ? <p className="muted">当前浏览器不支持通知提醒。</p> : null}
+          </article>
+
+          <article className="setting-card setting-card-wide release-note-card">
+            <div className="health-card-heading">
+              <div>
+                <h3>版本更新</h3>
+                <p className="setting-note">{APP_VERSION_LABEL}</p>
+              </div>
+              <span className="health-status">当前版本</span>
+            </div>
+            <div className="release-note-list">
+              {RELEASE_NOTES.map((release) => (
+                <div className="release-note-item" key={release.version}>
+                  <div>
+                    <strong>v{release.version}</strong>
+                    <span>对比 v{release.previousVersion}</span>
+                  </div>
+                  <h4>{release.title}</h4>
+                  <ul>
+                    {release.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </article>
         </div>
       </section>

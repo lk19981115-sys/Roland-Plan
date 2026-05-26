@@ -1,3 +1,5 @@
 export * from './date'
 export * from './goals'
+export * from './quickTaskParser'
 export * from './tasks'
+export * from './version'

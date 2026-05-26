@@ -1120,6 +1120,15 @@ p {
   font-size: 13px;
 }
 
+.app-version-label {
+  display: block;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+}
+
 .content-shell {
   min-width: 0;
   flex: 1;
@@ -2997,6 +3006,59 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.release-note-card {
+  border-color: var(--accent-line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 58%, var(--surface)), var(--surface));
+}
+
+.release-note-list {
+  display: grid;
+  gap: 10px;
+}
+
+.release-note-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft));
+}
+
+.release-note-item > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.release-note-item strong {
+  color: var(--accent);
+}
+
+.release-note-item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.release-note-item h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.release-note-item ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted-strong);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .reset-warning {
   display: grid;
   gap: 6px;
@@ -3163,6 +3225,49 @@ textarea:focus {
 
 .modal-header h2 {
   font-size: 18px;
+}
+
+.quick-parse-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+.quick-parse-panel span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quick-parse-panel strong {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.quick-parse-panel ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-parse-panel li {
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-line) 72%, var(--surface));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .shortcut-help {

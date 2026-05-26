@@ -6,32 +6,45 @@ import { getTodayISO } from '../lib/date'
 
 interface TaskFormProps {
   initialTask?: Task
+  initialDraft?: Partial<TaskDraft>
   defaultDate?: string
   submitLabel?: string
   onSubmit: (draft: TaskDraft) => void
   onCancel?: () => void
 }
 
-const createInitialDraft = (initialTask?: Task, defaultDate = getTodayISO()): TaskDraft => ({
-  title: initialTask?.title || '',
-  date: initialTask?.date || defaultDate,
-  startTime: initialTask?.startTime || '',
-  endTime: initialTask?.endTime || '',
-  noTime: initialTask?.noTime ?? true,
-  description: initialTask?.description || '',
-  tag: initialTask?.tag || 'other',
-  priority: initialTask?.priority || 'normal',
-  completed: initialTask?.completed || false,
-})
+const createInitialDraft = (
+  initialTask?: Task,
+  defaultDate = getTodayISO(),
+  initialDraft?: Partial<TaskDraft>,
+): TaskDraft => {
+  const baseDraft: TaskDraft = {
+    title: initialTask?.title || '',
+    date: initialTask?.date || defaultDate,
+    startTime: initialTask?.startTime || '',
+    endTime: initialTask?.endTime || '',
+    noTime: initialTask?.noTime ?? true,
+    description: initialTask?.description || '',
+    tag: initialTask?.tag || 'other',
+    priority: initialTask?.priority || 'normal',
+    completed: initialTask?.completed || false,
+  }
+
+  return {
+    ...baseDraft,
+    ...initialDraft,
+  }
+}
 
 export function TaskForm({
   initialTask,
+  initialDraft,
   defaultDate = getTodayISO(),
   submitLabel = '保存任务',
   onSubmit,
   onCancel,
 }: TaskFormProps) {
-  const [draft, setDraft] = useState<TaskDraft>(() => createInitialDraft(initialTask, defaultDate))
+  const [draft, setDraft] = useState<TaskDraft>(() => createInitialDraft(initialTask, defaultDate, initialDraft))
 
   const updateDraft = (patch: Partial<TaskDraft>) => {
     setDraft((current) => ({ ...current, ...patch }))
