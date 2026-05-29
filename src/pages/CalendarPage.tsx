@@ -1,6 +1,7 @@
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { AppData, RecurringTask, Task } from '../types'
+import { CALENDAR_DISPLAY_MODES } from '../types'
+import type { AppData, CalendarDisplayMode, RecurringTask, Task } from '../types'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import { TaskCard } from '../components/TaskCard'
@@ -22,12 +23,29 @@ const monthTitle = (date: Date) =>
 const getRecurringKeyForDate = (task: RecurringTask, date: string) =>
   task.type === 'daily' ? date : getWeekId(date)
 
+const getTaskPreviewLabel = (task: Task) => {
+  if (task.completed) {
+    return '完'
+  }
+
+  return task.priority === 'must' ? '必' : '待'
+}
+
+const getTaskPreviewState = (task: Task) => {
+  if (task.completed) {
+    return 'done'
+  }
+
+  return task.priority === 'must' ? 'must' : 'open'
+}
+
 export function CalendarPage({ data, actions }: CalendarPageProps) {
   const today = getTodayISO()
   const [monthDate, setMonthDate] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState(today)
   const [isAdding, setIsAdding] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const calendarDisplayMode = data.settings.calendarDisplayMode
   const gridDates = useMemo(() => getMonthGridDates(monthDate), [monthDate])
   const selectedTasks = useMemo(
     () => sortTasksByTime(data.tasks.filter((task) => task.date === selectedDate)),
@@ -66,6 +84,24 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
             <h2>{monthTitle(monthDate)}</h2>
           </div>
           <div className="toolbar">
+            <label className="calendar-display-control">
+              <span>显示方式</span>
+              <select
+                value={calendarDisplayMode}
+                onChange={(event) =>
+                  actions.updateSettings({
+                    calendarDisplayMode: event.target.value as CalendarDisplayMode,
+                  })
+                }
+                aria-label="月历显示方式"
+              >
+                {CALENDAR_DISPLAY_MODES.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button className="icon-button" type="button" onClick={() => goToMonth(-1)} aria-label="上个月" title="上个月">
               <ChevronLeft size={18} />
             </button>
@@ -85,7 +121,7 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
         </div>
         <div className="calendar-board" data-tour="calendar-board">
           {gridDates.map((date) => {
-            const tasks = data.tasks.filter((task) => task.date === date)
+            const tasks = sortTasksByTime(data.tasks.filter((task) => task.date === date))
             const done = tasks.filter((task) => task.completed).length
             const open = tasks.length - done
             const must = tasks.filter((task) => task.priority === 'must' && !task.completed).length
@@ -99,6 +135,29 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
             })
             const checkedRecurring = recurringItems.filter((item) => item.checked).length
             const uncheckedRecurring = recurringItems.length - checkedRecurring
+            const shouldShowTaskTitles = calendarDisplayMode !== 'compact'
+            const shouldShowRecurringTitles = calendarDisplayMode === 'all'
+            const previewItems = [
+              ...(shouldShowTaskTitles
+                ? tasks.map((task) => ({
+                    id: task.id,
+                    title: task.title,
+                    label: getTaskPreviewLabel(task),
+                    state: getTaskPreviewState(task),
+                  }))
+                : []),
+              ...(shouldShowRecurringTitles
+                ? recurringItems.map(({ task, checked }) => ({
+                    id: task.id,
+                    title: task.title,
+                    label: checked ? '打' : '待',
+                    state: checked ? 'recurring-done' : 'recurring-open',
+                  }))
+                : []),
+            ]
+            const previewLimit = calendarDisplayMode === 'all' ? 4 : 3
+            const visiblePreviewItems = previewItems.slice(0, previewLimit)
+            const hiddenPreviewCount = previewItems.length - visiblePreviewItems.length
             const isCurrentMonth = Number(date.slice(5, 7)) === monthDate.getMonth() + 1
             const dayState =
               tasks.length === 0 && recurringItems.length === 0
@@ -127,6 +186,17 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
                     ) : null}
                     {must > 0 ? <b>{must} 必做</b> : null}
                   </div>
+                ) : null}
+                {visiblePreviewItems.length > 0 ? (
+                  <ul className="calendar-item-preview" aria-label={`${date} 日程预览`}>
+                    {visiblePreviewItems.map((item) => (
+                      <li key={`${item.state}-${item.id}`} className={`calendar-preview-${item.state}`}>
+                        <span>{item.title}</span>
+                        <em>{item.label}</em>
+                      </li>
+                    ))}
+                    {hiddenPreviewCount > 0 ? <li className="calendar-preview-more">+{hiddenPreviewCount} 项</li> : null}
+                  </ul>
                 ) : null}
                 {tasks.length > 0 ? (
                   <i

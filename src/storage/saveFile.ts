@@ -17,6 +17,7 @@ const THEME_MODE_VALUES = ['light', 'dark', 'system']
 const ACCENT_COLOR_VALUES = ['blue', 'green', 'purple', 'gray', 'pink']
 const VIEW_DENSITY_VALUES = ['comfortable', 'compact']
 const APPEARANCE_STYLE_VALUES = ['minimal', 'relaxed']
+const CALENDAR_DISPLAY_MODE_VALUES = ['tasks', 'compact', 'all']
 const SYNC_STATUS_VALUES = ['local', 'pending', 'synced', 'error']
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^\d{2}:\d{2}$/
@@ -175,6 +176,10 @@ const getMigrationNotes = (fromVersion: number, toVersion: number): string[] => 
     notes.push('加入界面风格设置，支持简约和轻松纸质风格切换。')
   }
 
+  if (fromVersion <= 8) {
+    notes.push('加入月历显示方式设置，支持任务、简洁和全部三种查看模式。')
+  }
+
   if (fromVersion === toVersion) {
     notes.push('修复当前版本存档结构缺失的字段。')
   }
@@ -284,6 +289,8 @@ const isSettings = (value: unknown): value is Settings => {
     isBoolean(value.collapseCompletedTasks) &&
     isString(value.viewDensity) &&
     VIEW_DENSITY_VALUES.includes(value.viewDensity) &&
+    isString(value.calendarDisplayMode) &&
+    CALENDAR_DISPLAY_MODE_VALUES.includes(value.calendarDisplayMode) &&
     isBoolean(value.autoCloudSaveEnabled) &&
     isNumber(value.autoCloudSaveIntervalMinutes) &&
     value.autoCloudSaveIntervalMinutes >= 1 &&
@@ -344,7 +351,7 @@ export const migrateSaveData = (data: unknown): AppData | null => {
 
   const sourceVersion = Number(data.schemaVersion)
 
-  if (![1, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION].includes(sourceVersion)) {
+  if (![1, 2, 3, 4, 5, 6, 7, 8, SCHEMA_VERSION].includes(sourceVersion)) {
     return null
   }
 
@@ -373,6 +380,11 @@ export const migrateSaveData = (data: unknown): AppData | null => {
       isString(settingsSource.viewDensity) && VIEW_DENSITY_VALUES.includes(settingsSource.viewDensity)
         ? (settingsSource.viewDensity as Settings['viewDensity'])
         : 'comfortable',
+    calendarDisplayMode:
+      isString(settingsSource.calendarDisplayMode) &&
+      CALENDAR_DISPLAY_MODE_VALUES.includes(settingsSource.calendarDisplayMode)
+        ? (settingsSource.calendarDisplayMode as Settings['calendarDisplayMode'])
+        : 'tasks',
     autoCloudSaveEnabled: isBoolean(settingsSource.autoCloudSaveEnabled)
       ? settingsSource.autoCloudSaveEnabled
       : true,

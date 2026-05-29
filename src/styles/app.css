@@ -1615,6 +1615,7 @@ h3,
 :root[data-style='relaxed'] .recurring-card,
 :root[data-style='relaxed'] .task-card,
 :root[data-style='relaxed'] .modal,
+:root[data-style='relaxed'] .release-announcement-card,
 :root[data-style='relaxed'] .user-popover {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 44%),
@@ -2841,6 +2842,35 @@ textarea:focus {
   grid-template-columns: minmax(0, 1fr) 400px;
 }
 
+.calendar-display-control {
+  display: inline-grid;
+  grid-template-columns: auto minmax(78px, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted-strong);
+}
+
+.calendar-display-control span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.calendar-display-control select {
+  min-width: 78px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 0;
+  background: transparent;
+  font-weight: 750;
+}
+
 .calendar-weekdays,
 .calendar-board {
   display: grid;
@@ -2858,7 +2888,7 @@ textarea:focus {
 .calendar-day {
   position: relative;
   display: grid;
-  min-height: 96px;
+  min-height: 124px;
   align-content: start;
   gap: 8px;
   padding: 10px;
@@ -2919,6 +2949,79 @@ textarea:focus {
 
 .calendar-density b {
   color: var(--danger);
+}
+
+.calendar-item-preview {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calendar-item-preview li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted-strong);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.calendar-item-preview li > span {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.calendar-item-preview li > em {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.calendar-item-preview .calendar-preview-done > span,
+.calendar-item-preview .calendar-preview-recurring-done > span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.calendar-item-preview .calendar-preview-done > em,
+.calendar-item-preview .calendar-preview-recurring-done > em {
+  background: color-mix(in srgb, #16a34a 15%, var(--surface));
+  color: #15803d;
+}
+
+.calendar-item-preview .calendar-preview-must > em {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+
+.calendar-item-preview .calendar-preview-recurring-open > em {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+}
+
+.calendar-preview-more {
+  display: block !important;
+  color: var(--muted) !important;
+  font-weight: 700;
 }
 
 .calendar-task-meter {
@@ -3556,6 +3659,118 @@ textarea:focus {
   font-weight: 650;
 }
 
+.release-announcement-root {
+  position: fixed;
+  z-index: 45;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, #111827 48%, transparent);
+  backdrop-filter: blur(5px);
+}
+
+.release-announcement-card {
+  position: relative;
+  display: grid;
+  width: min(520px, 100%);
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  animation: menu-pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.release-announcement-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted-strong);
+}
+
+.release-announcement-close:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.release-announcement-icon {
+  display: inline-grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.release-announcement-eyebrow {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.release-announcement-card h2 {
+  padding-right: 42px;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.release-announcement-card p {
+  color: var(--muted-strong);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.release-announcement-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release-announcement-list li {
+  position: relative;
+  min-height: 34px;
+  padding: 8px 10px 8px 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.release-announcement-list li::before {
+  position: absolute;
+  top: 14px;
+  left: 13px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  content: '';
+}
+
+.release-announcement-action {
+  justify-self: start;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
 .shortcut-help {
   display: grid;
   gap: 12px;
@@ -4083,7 +4298,7 @@ kbd {
   }
 
   .calendar-day {
-    min-height: 72px;
+    min-height: 112px;
     padding: 8px;
   }
 
@@ -4119,6 +4334,117 @@ kbd {
     overflow: hidden;
     text-overflow: clip;
     white-space: nowrap;
+  }
+
+  :root[data-style='relaxed'] body {
+    font-size: 16px;
+    line-height: 1.58;
+  }
+
+  :root[data-style='relaxed'] .topbar {
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  :root[data-style='relaxed'] .topbar h1 {
+    font-size: 24px;
+    line-height: 1.18;
+  }
+
+  :root[data-style='relaxed'] .topbar p,
+  :root[data-style='relaxed'] .section-heading p,
+  :root[data-style='relaxed'] .sidebar-status span,
+  :root[data-style='relaxed'] .muted,
+  :root[data-style='relaxed'] .quiet-line {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  :root[data-style='relaxed'] .panel {
+    padding: 16px;
+  }
+
+  :root[data-style='relaxed'] .section-heading h2 {
+    font-size: 22px;
+    line-height: 1.28;
+  }
+
+  :root[data-style='relaxed'] .button,
+  :root[data-style='relaxed'] .icon-button,
+  :root[data-style='relaxed'] input,
+  :root[data-style='relaxed'] select,
+  :root[data-style='relaxed'] textarea {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  :root[data-style='relaxed'] .quick-add-field input {
+    height: 44px;
+  }
+
+  :root[data-style='relaxed'] .appearance-style-control select {
+    min-width: 66px;
+    height: 34px;
+    font-size: 15px;
+  }
+
+  :root[data-style='relaxed'] .task-title-row h3,
+  :root[data-style='relaxed'] .goal-card h3,
+  :root[data-style='relaxed'] .recurring-card h3,
+  :root[data-style='relaxed'] .setting-card h3 {
+    font-size: 17px;
+    line-height: 1.42;
+  }
+
+  :root[data-style='relaxed'] .task-meta,
+  :root[data-style='relaxed'] .search-result-meta,
+  :root[data-style='relaxed'] .calendar-density em,
+  :root[data-style='relaxed'] .calendar-density b {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  :root[data-style='relaxed'] .task-body p,
+  :root[data-style='relaxed'] .goal-card p,
+  :root[data-style='relaxed'] .recurring-body p {
+    font-size: 15px;
+    line-height: 1.72;
+  }
+
+  :root[data-style='relaxed'] .tag,
+  :root[data-style='relaxed'] .priority {
+    min-height: 27px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  :root[data-style='relaxed'] .bottom-nav {
+    padding: 7px;
+  }
+
+  :root[data-style='relaxed'] .bottom-nav button {
+    min-height: 54px;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.2;
+  }
+
+  :root[data-style='relaxed'] .bottom-nav button svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  :root[data-style='relaxed'] .review-table td,
+  :root[data-style='relaxed'] .review-table td:first-child,
+  :root[data-style='relaxed'] .review-table td:nth-child(2),
+  :root[data-style='relaxed'] .review-table td:nth-child(3) {
+    grid-template-columns: 92px minmax(0, 1fr);
+    font-size: 15px;
+    line-height: 1.62;
+  }
+
+  :root[data-style='relaxed'] .review-table td::before {
+    font-size: 13px;
   }
 }
 
@@ -4223,8 +4549,24 @@ kbd {
   }
 
   .calendar-day {
-    min-height: 62px;
+    min-height: 92px;
     padding: 6px;
+  }
+
+  .calendar-item-preview {
+    gap: 3px;
+  }
+
+  .calendar-item-preview li {
+    gap: 4px;
+    font-size: 11px;
+    line-height: 1.28;
+  }
+
+  .calendar-item-preview li > em {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
   }
 
   .calendar-day strong {
@@ -4238,6 +4580,68 @@ kbd {
 
   .log-row {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .release-announcement-root {
+    align-items: end;
+    padding: 14px;
+  }
+
+  .release-announcement-card {
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .release-announcement-card h2 {
+    font-size: 22px;
+  }
+
+  .release-announcement-card p {
+    font-size: 14px;
+  }
+
+  .release-announcement-action {
+    width: 100%;
+  }
+
+  :root[data-style='relaxed'] .topbar h1 {
+    font-size: 23px;
+  }
+
+  :root[data-style='relaxed'] .welcome-copy h1 {
+    font-size: 38px;
+    line-height: 1.12;
+  }
+
+  :root[data-style='relaxed'] .welcome-copy p {
+    font-size: 17px;
+    line-height: 1.58;
+  }
+
+  :root[data-style='relaxed'] .welcome-copy strong {
+    font-size: 18px;
+  }
+
+  :root[data-style='relaxed'] .welcome-orbit-button,
+  :root[data-style='relaxed'] .welcome-skip-button,
+  :root[data-style='relaxed'] .welcome-email-toggle {
+    font-size: 17px;
+  }
+
+  :root[data-style='relaxed'] .bottom-nav button {
+    min-height: 52px;
+    font-size: 11px;
+  }
+
+  :root[data-style='relaxed'] .calendar-day span {
+    font-size: 15px;
+  }
+
+  :root[data-style='relaxed'] .calendar-density strong,
+  :root[data-style='relaxed'] .calendar-density em {
+    min-height: 23px;
+    padding: 2px 6px;
+    font-size: 12px;
   }
 }
 
@@ -4253,6 +4657,7 @@ kbd {
   .app-shell,
   .page-transition,
   .user-popover,
+  .release-announcement-card,
   .spin-icon {
     animation: none;
   }

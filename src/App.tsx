@@ -3,12 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GlobalSearch } from './components/GlobalSearch'
 import { Layout } from './components/Layout'
 import { OnboardingTour, type TourStep } from './components/OnboardingTour'
+import { ReleaseAnnouncement } from './components/ReleaseAnnouncement'
 import { WelcomeGate } from './components/WelcomeGate'
 import { useAppData } from './hooks/useAppData'
 import { useAutoCloudSave } from './hooks/useAutoCloudSave'
 import { useNotifications } from './hooks/useNotifications'
 import { TaskSelectionProvider } from './hooks/useTaskSelection'
-import { parseQuickTaskInput, type QuickTaskParseResult } from './lib'
+import { APP_VERSION, RELEASE_NOTES, parseQuickTaskInput, type QuickTaskParseResult } from './lib'
 import { Modal } from './components/Modal'
 import { TaskForm } from './components/TaskForm'
 import { CalendarPage } from './pages/CalendarPage'
@@ -28,6 +29,7 @@ const LEGACY_ONBOARDING_STORAGE_KEY = 'roland-plan-onboarding-v1'
 const ENTRY_GATE_STORAGE_KEY = 'roland-plan-entry-gate-v3'
 
 const getTourStorageKey = (tourId: TourId) => `roland-plan-tour-${tourId}-v1`
+const getReleaseStorageKey = (version: string) => `roland-plan-release-seen-${version}`
 
 const isTourId = (pageId: PageId): pageId is TourId => pageId !== 'settings'
 
@@ -51,6 +53,22 @@ const markTourCompleted = (tourId: TourId) => {
     }
   } catch {
     // Storage can be unavailable in strict privacy modes; the tour should still close gracefully.
+  }
+}
+
+const hasSeenReleaseAnnouncement = (version: string) => {
+  try {
+    return localStorage.getItem(getReleaseStorageKey(version)) === 'done'
+  } catch {
+    return false
+  }
+}
+
+const markReleaseAnnouncementSeen = (version: string) => {
+  try {
+    localStorage.setItem(getReleaseStorageKey(version), 'done')
+  } catch {
+    // Keep the app usable even when localStorage is unavailable.
   }
 }
 
@@ -319,6 +337,10 @@ function App() {
   const [isLaunchingApp, setIsLaunchingApp] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [activeTourId, setActiveTourId] = useState<TourId | null>(null)
+  const [isReleaseAnnouncementOpen, setIsReleaseAnnouncementOpen] = useState(false)
+  const [hasSeenCurrentRelease, setHasSeenCurrentRelease] = useState(() =>
+    hasSeenReleaseAnnouncement(APP_VERSION),
+  )
   const [quickAddFocusSignal, setQuickAddFocusSignal] = useState(0)
   const [quickTaskParseResult, setQuickTaskParseResult] = useState<QuickTaskParseResult | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -329,6 +351,7 @@ function App() {
   const shortcutEditingTask = data.tasks.find((task) => task.id === shortcutEditingTaskId)
   const effectiveSelectedTaskId =
     selectedTaskId && data.tasks.some((task) => task.id === selectedTaskId) ? selectedTaskId : null
+  const latestReleaseNote = RELEASE_NOTES[0]
 
   const disableUnavailableNotifications = useCallback(() => {
     updateSettings({ notificationsEnabled: false })
@@ -423,6 +446,12 @@ function App() {
     setActiveTourId(null)
   }, [activeTourId])
 
+  const closeReleaseAnnouncement = useCallback(() => {
+    markReleaseAnnouncementSeen(APP_VERSION)
+    setHasSeenCurrentRelease(true)
+    setIsReleaseAnnouncementOpen(false)
+  }, [])
+
   const replayCurrentTour = useCallback(() => {
     if (!isTourId(page)) {
       return
@@ -430,6 +459,43 @@ function App() {
 
     setActiveTourId(page)
   }, [page])
+
+  useEffect(() => {
+    if (
+      !hasEnteredApp ||
+      isLaunchingApp ||
+      hasSeenCurrentRelease ||
+      isReleaseAnnouncementOpen ||
+      activeTourId ||
+      isSearchOpen ||
+      shortcutEditingTaskId ||
+      quickTaskParseResult
+    ) {
+      return
+    }
+
+    if (isTourId(page) && !hasCompletedTour(page)) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      if (!hasOpenDialog() && !(isTourId(page) && !hasCompletedTour(page))) {
+        setIsReleaseAnnouncementOpen(true)
+      }
+    }, 320)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    activeTourId,
+    hasEnteredApp,
+    hasSeenCurrentRelease,
+    isLaunchingApp,
+    isReleaseAnnouncementOpen,
+    isSearchOpen,
+    page,
+    quickTaskParseResult,
+    shortcutEditingTaskId,
+  ])
 
   useEffect(() => {
     const handleShortcuts = (event: KeyboardEvent) => {
@@ -708,6 +774,15 @@ function App() {
           isOpen
           steps={activeTour.steps}
           onClose={closeActiveTour}
+        />
+      ) : null}
+      {isReleaseAnnouncementOpen ? (
+        <ReleaseAnnouncement
+          version={latestReleaseNote.version}
+          previousVersion={latestReleaseNote.previousVersion}
+          title={latestReleaseNote.title}
+          items={latestReleaseNote.items}
+          onClose={closeReleaseAnnouncement}
         />
       ) : null}
     </TaskSelectionProvider>

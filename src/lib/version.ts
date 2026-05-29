@@ -1,8 +1,18 @@
-export const APP_VERSION = '0.8.3'
+export const APP_VERSION = '0.8.4'
 
 export const APP_VERSION_LABEL = `Roland-Plan v${APP_VERSION}`
 
 export const RELEASE_NOTES = [
+  {
+    version: '0.8.4',
+    previousVersion: '0.8.3',
+    title: '月历任务显示模式增强',
+    items: [
+      '月历新增显示方式下拉菜单，可在“任务”“简洁”“全部”之间切换，默认显示普通任务。',
+      '任务模式下，月历格子会直接展示普通任务标题，同时保留任务和打卡完成统计。',
+      '月历任务标题支持最多两行显示，超出后再省略，提升长任务名称的可读性。',
+    ],
+  },
   {
     version: '0.8.3',
     previousVersion: '0.8.2',

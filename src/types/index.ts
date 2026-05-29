@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 8
+export const SCHEMA_VERSION = 9
 
 export const UNLIMITED_GOAL_TOTAL = 2147483647
 
@@ -17,6 +17,8 @@ export type AccentColor = 'blue' | 'green' | 'purple' | 'gray' | 'pink'
 export type ViewDensity = 'comfortable' | 'compact'
 
 export type AppearanceStyle = 'minimal' | 'relaxed'
+
+export type CalendarDisplayMode = 'tasks' | 'compact' | 'all'
 
 export type PageId = 'today' | 'week' | 'goals' | 'recurring' | 'calendar' | 'review' | 'settings'
 
@@ -106,6 +108,7 @@ export interface Settings {
   notificationsEnabled: boolean
   collapseCompletedTasks: boolean
   viewDensity: ViewDensity
+  calendarDisplayMode: CalendarDisplayMode
   autoCloudSaveEnabled: boolean
   autoCloudSaveIntervalMinutes: number
   lastAutoCloudSaveAt?: string
@@ -162,4 +165,10 @@ export const ACCENT_COLORS: Array<{ value: AccentColor; label: string }> = [
 export const APPEARANCE_STYLES: Array<{ value: AppearanceStyle; label: string }> = [
   { value: 'minimal', label: '简约' },
   { value: 'relaxed', label: '轻松' },
+]
+
+export const CALENDAR_DISPLAY_MODES: Array<{ value: CalendarDisplayMode; label: string }> = [
+  { value: 'tasks', label: '任务' },
+  { value: 'compact', label: '简洁' },
+  { value: 'all', label: '全部' },
 ]
