@@ -1,13 +1,21 @@
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { CALENDAR_DISPLAY_MODES } from '../types'
-import type { AppData, CalendarDisplayMode, RecurringTask, Task } from '../types'
+import { CALENDAR_DISPLAY_MODES, CALENDAR_VIEW_MODES } from '../types'
+import type { AppData, CalendarDisplayMode, CalendarViewMode, RecurringTask, Task } from '../types'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import { TaskCard } from '../components/TaskCard'
 import { TaskForm } from '../components/TaskForm'
 import type { AppActions } from '../hooks/useAppData'
-import { formatReadableDate, getMonthGridDates, getTodayISO, getWeekId, sortTasksByTime } from '../lib'
+import {
+  addDaysISO,
+  formatReadableDate,
+  getMonthGridDates,
+  getTodayISO,
+  getWeekId,
+  getWeekRange,
+  sortTasksByTime,
+} from '../lib'
 
 interface CalendarPageProps {
   data: AppData
@@ -19,6 +27,19 @@ const monthTitle = (date: Date) =>
     year: 'numeric',
     month: 'long',
   })
+
+const toLocalDate = (date: string): Date => {
+  const [year, month, day] = date.split('-').map(Number)
+
+  return new Date(year, month - 1, day)
+}
+
+const formatShortDate = (date: string) => `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`
+
+const weekTitle = (start: string, end: string) => `${formatShortDate(start)} 至 ${formatShortDate(end)}`
+
+const formatWeekdayShort = (date: string) =>
+  toLocalDate(date).toLocaleDateString('zh-CN', { weekday: 'short' })
 
 const getRecurringKeyForDate = (task: RecurringTask, date: string) =>
   task.type === 'daily' ? date : getWeekId(date)
@@ -41,12 +62,18 @@ const getTaskPreviewState = (task: Task) => {
 
 export function CalendarPage({ data, actions }: CalendarPageProps) {
   const today = getTodayISO()
-  const [monthDate, setMonthDate] = useState(() => new Date())
+  const [viewDate, setViewDate] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState(today)
   const [isAdding, setIsAdding] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const calendarDisplayMode = data.settings.calendarDisplayMode
-  const gridDates = useMemo(() => getMonthGridDates(monthDate), [monthDate])
+  const calendarViewMode = data.settings.calendarViewMode
+  const weekRange = useMemo(() => getWeekRange(viewDate), [viewDate])
+  const gridDates = useMemo(
+    () => (calendarViewMode === 'week' ? weekRange.dates : getMonthGridDates(viewDate)),
+    [calendarViewMode, viewDate, weekRange.dates],
+  )
+  const title = calendarViewMode === 'week' ? weekTitle(weekRange.start, weekRange.end) : monthTitle(viewDate)
   const selectedTasks = useMemo(
     () => sortTasksByTime(data.tasks.filter((task) => task.date === selectedDate)),
     [data.tasks, selectedDate],
@@ -65,13 +92,24 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
     [data.recurringTasks, selectedDate],
   )
 
-  const goToMonth = (offset: number) => {
-    setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+  const goToPeriod = (offset: number) => {
+    if (calendarViewMode === 'week') {
+      setViewDate((current) => new Date(current.getFullYear(), current.getMonth(), current.getDate() + offset * 7))
+      setSelectedDate((current) => addDaysISO(current, offset * 7))
+      return
+    }
+
+    setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+  }
+
+  const changeViewMode = (mode: CalendarViewMode) => {
+    actions.updateSettings({ calendarViewMode: mode })
+    setViewDate(toLocalDate(selectedDate))
   }
 
   const goToToday = () => {
     const current = new Date()
-    setMonthDate(current)
+    setViewDate(current)
     setSelectedDate(today)
   }
 
@@ -81,9 +119,23 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
         <div className="section-heading">
           <div>
             <p>回顾与规划</p>
-            <h2>{monthTitle(monthDate)}</h2>
+            <h2>{title}</h2>
           </div>
           <div className="toolbar">
+            <label className="calendar-display-control">
+              <span>视图</span>
+              <select
+                value={calendarViewMode}
+                onChange={(event) => changeViewMode(event.target.value as CalendarViewMode)}
+                aria-label="日历视图"
+              >
+                {CALENDAR_VIEW_MODES.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="calendar-display-control">
               <span>显示方式</span>
               <select
@@ -93,7 +145,7 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
                     calendarDisplayMode: event.target.value as CalendarDisplayMode,
                   })
                 }
-                aria-label="月历显示方式"
+                aria-label="日历显示方式"
               >
                 {CALENDAR_DISPLAY_MODES.map((mode) => (
                   <option key={mode.value} value={mode.value}>
@@ -102,24 +154,39 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
                 ))}
               </select>
             </label>
-            <button className="icon-button" type="button" onClick={() => goToMonth(-1)} aria-label="上个月" title="上个月">
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => goToPeriod(-1)}
+              aria-label={calendarViewMode === 'week' ? '上一周' : '上个月'}
+              title={calendarViewMode === 'week' ? '上一周' : '上个月'}
+            >
               <ChevronLeft size={18} />
             </button>
             <button className="button button-ghost" type="button" onClick={goToToday}>
               回到今天
             </button>
-            <button className="icon-button" type="button" onClick={() => goToMonth(1)} aria-label="下个月" title="下个月">
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => goToPeriod(1)}
+              aria-label={calendarViewMode === 'week' ? '下一周' : '下个月'}
+              title={calendarViewMode === 'week' ? '下一周' : '下个月'}
+            >
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
-        <div className="calendar-weekdays">
+        <div className={`calendar-weekdays ${calendarViewMode === 'week' ? 'calendar-weekdays-week' : ''}`}>
           {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
             <span key={day}>{day}</span>
           ))}
         </div>
-        <div className="calendar-board" data-tour="calendar-board">
+        <div
+          className={`calendar-board ${calendarViewMode === 'week' ? 'calendar-board-week' : ''}`}
+          data-tour="calendar-board"
+        >
           {gridDates.map((date) => {
             const tasks = sortTasksByTime(data.tasks.filter((task) => task.date === date))
             const done = tasks.filter((task) => task.completed).length
@@ -155,10 +222,18 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
                   }))
                 : []),
             ]
-            const previewLimit = calendarDisplayMode === 'all' ? 4 : 3
+            const previewLimit =
+              calendarViewMode === 'week'
+                ? calendarDisplayMode === 'all'
+                  ? 8
+                  : 6
+                : calendarDisplayMode === 'all'
+                  ? 4
+                  : 3
             const visiblePreviewItems = previewItems.slice(0, previewLimit)
             const hiddenPreviewCount = previewItems.length - visiblePreviewItems.length
-            const isCurrentMonth = Number(date.slice(5, 7)) === monthDate.getMonth() + 1
+            const isCurrentPeriod =
+              calendarViewMode === 'week' || Number(date.slice(5, 7)) === viewDate.getMonth() + 1
             const dayState =
               tasks.length === 0 && recurringItems.length === 0
                 ? 'empty'
@@ -169,13 +244,18 @@ export function CalendarPage({ data, actions }: CalendarPageProps) {
             return (
               <button
                 key={date}
-                className={`calendar-day ${date === selectedDate ? 'selected' : ''} ${
+                className={`calendar-day ${calendarViewMode === 'week' ? 'calendar-day-week' : ''} ${
+                  date === selectedDate ? 'selected' : ''
+                } ${
                   date === today ? 'today' : ''
-                } ${!isCurrentMonth ? 'muted-day' : ''} ${dayState}`}
+                } ${!isCurrentPeriod ? 'muted-day' : ''} ${dayState}`}
                 type="button"
                 onClick={() => setSelectedDate(date)}
               >
-                <span>{Number(date.slice(8, 10))}</span>
+                <span className="calendar-day-number">
+                  {calendarViewMode === 'week' ? formatShortDate(date) : Number(date.slice(8, 10))}
+                  {calendarViewMode === 'week' ? <small>{formatWeekdayShort(date)}</small> : null}
+                </span>
                 {tasks.length > 0 || recurringItems.length > 0 ? (
                   <div className="calendar-density">
                     {tasks.length > 0 ? <strong>任务 {done}/{tasks.length}</strong> : null}

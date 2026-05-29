@@ -2885,6 +2885,10 @@ textarea:focus {
   text-align: center;
 }
 
+.calendar-weekdays-week {
+  display: none;
+}
+
 .calendar-day {
   position: relative;
   display: grid;
@@ -2901,6 +2905,65 @@ textarea:focus {
 
 .calendar-day span {
   font-weight: 650;
+}
+
+.calendar-day-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendar-day-number small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendar-board-week {
+  grid-template-columns: 1fr;
+}
+
+.calendar-board-week .calendar-day {
+  min-height: auto;
+}
+
+.calendar-day-week {
+  grid-template-columns: minmax(118px, 0.7fr) minmax(140px, 0.8fr) minmax(0, 2.8fr);
+  align-items: start;
+  gap: 12px 18px;
+  padding: 14px;
+}
+
+.calendar-board-week .calendar-item-preview {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 14px;
+}
+
+.calendar-board-week .calendar-item-preview li {
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.calendar-board-week .calendar-task-meter {
+  grid-column: 1 / -1;
+  max-width: 220px;
+}
+
+.calendar-board-week .calendar-day-number {
+  align-items: baseline;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.calendar-board-week .calendar-day-number small {
+  font-size: 13px;
+}
+
+.calendar-board-week .calendar-density {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .calendar-day strong {
@@ -4302,6 +4365,16 @@ kbd {
     padding: 8px;
   }
 
+  .calendar-day-week {
+    grid-template-columns: minmax(96px, 0.8fr) minmax(120px, 1fr) minmax(0, 2fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .calendar-board-week .calendar-item-preview {
+    grid-template-columns: 1fr;
+  }
+
   .bottom-nav {
     position: fixed;
     z-index: 30;
@@ -4551,6 +4624,25 @@ kbd {
   .calendar-day {
     min-height: 92px;
     padding: 6px;
+  }
+
+  .calendar-board-week .calendar-day {
+    min-height: auto;
+    padding: 10px;
+  }
+
+  .calendar-day-week {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-board-week .calendar-day-number {
+    font-size: 16px;
+  }
+
+  .calendar-board-week .calendar-density strong,
+  .calendar-board-week .calendar-density em,
+  .calendar-board-week .calendar-density b {
+    display: inline-flex;
   }
 
   .calendar-item-preview {

@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 9
+export const SCHEMA_VERSION = 10
 
 export const UNLIMITED_GOAL_TOTAL = 2147483647
 
@@ -19,6 +19,8 @@ export type ViewDensity = 'comfortable' | 'compact'
 export type AppearanceStyle = 'minimal' | 'relaxed'
 
 export type CalendarDisplayMode = 'tasks' | 'compact' | 'all'
+
+export type CalendarViewMode = 'month' | 'week'
 
 export type PageId = 'today' | 'week' | 'goals' | 'recurring' | 'calendar' | 'review' | 'settings'
 
@@ -109,6 +111,7 @@ export interface Settings {
   collapseCompletedTasks: boolean
   viewDensity: ViewDensity
   calendarDisplayMode: CalendarDisplayMode
+  calendarViewMode: CalendarViewMode
   autoCloudSaveEnabled: boolean
   autoCloudSaveIntervalMinutes: number
   lastAutoCloudSaveAt?: string
@@ -171,4 +174,9 @@ export const CALENDAR_DISPLAY_MODES: Array<{ value: CalendarDisplayMode; label: 
   { value: 'tasks', label: '任务' },
   { value: 'compact', label: '简洁' },
   { value: 'all', label: '全部' },
+]
+
+export const CALENDAR_VIEW_MODES: Array<{ value: CalendarViewMode; label: string }> = [
+  { value: 'month', label: '月' },
+  { value: 'week', label: '周' },
 ]

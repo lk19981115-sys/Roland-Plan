@@ -210,8 +210,8 @@ const TOUR_DEFINITIONS: Record<TourId, { id: TourId; steps: TourStep[] }> = {
     steps: [
       {
         target: '[data-tour="calendar-board"]',
-        title: '月历视图',
-        description: '每一天会显示任务密度、待办数和完成状态，适合回顾和提前规划。',
+        title: '日历视图',
+        description: '这里可以在月视图和周视图之间切换，每一天会显示任务密度、待办数和完成状态。',
         placement: 'right',
       },
       {

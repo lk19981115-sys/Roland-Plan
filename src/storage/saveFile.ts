@@ -18,6 +18,7 @@ const ACCENT_COLOR_VALUES = ['blue', 'green', 'purple', 'gray', 'pink']
 const VIEW_DENSITY_VALUES = ['comfortable', 'compact']
 const APPEARANCE_STYLE_VALUES = ['minimal', 'relaxed']
 const CALENDAR_DISPLAY_MODE_VALUES = ['tasks', 'compact', 'all']
+const CALENDAR_VIEW_MODE_VALUES = ['month', 'week']
 const SYNC_STATUS_VALUES = ['local', 'pending', 'synced', 'error']
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^\d{2}:\d{2}$/
@@ -180,6 +181,10 @@ const getMigrationNotes = (fromVersion: number, toVersion: number): string[] => 
     notes.push('加入月历显示方式设置，支持任务、简洁和全部三种查看模式。')
   }
 
+  if (fromVersion <= 9) {
+    notes.push('加入日历月/周视图设置，可在整月总览和一周精排之间切换。')
+  }
+
   if (fromVersion === toVersion) {
     notes.push('修复当前版本存档结构缺失的字段。')
   }
@@ -291,6 +296,8 @@ const isSettings = (value: unknown): value is Settings => {
     VIEW_DENSITY_VALUES.includes(value.viewDensity) &&
     isString(value.calendarDisplayMode) &&
     CALENDAR_DISPLAY_MODE_VALUES.includes(value.calendarDisplayMode) &&
+    isString(value.calendarViewMode) &&
+    CALENDAR_VIEW_MODE_VALUES.includes(value.calendarViewMode) &&
     isBoolean(value.autoCloudSaveEnabled) &&
     isNumber(value.autoCloudSaveIntervalMinutes) &&
     value.autoCloudSaveIntervalMinutes >= 1 &&
@@ -351,7 +358,7 @@ export const migrateSaveData = (data: unknown): AppData | null => {
 
   const sourceVersion = Number(data.schemaVersion)
 
-  if (![1, 2, 3, 4, 5, 6, 7, 8, SCHEMA_VERSION].includes(sourceVersion)) {
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, SCHEMA_VERSION].includes(sourceVersion)) {
     return null
   }
 
@@ -385,6 +392,11 @@ export const migrateSaveData = (data: unknown): AppData | null => {
       CALENDAR_DISPLAY_MODE_VALUES.includes(settingsSource.calendarDisplayMode)
         ? (settingsSource.calendarDisplayMode as Settings['calendarDisplayMode'])
         : 'tasks',
+    calendarViewMode:
+      isString(settingsSource.calendarViewMode) &&
+      CALENDAR_VIEW_MODE_VALUES.includes(settingsSource.calendarViewMode)
+        ? (settingsSource.calendarViewMode as Settings['calendarViewMode'])
+        : 'month',
     autoCloudSaveEnabled: isBoolean(settingsSource.autoCloudSaveEnabled)
       ? settingsSource.autoCloudSaveEnabled
       : true,

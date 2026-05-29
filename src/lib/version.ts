@@ -1,8 +1,18 @@
-export const APP_VERSION = '0.8.4'
+export const APP_VERSION = '0.8.5'
 
 export const APP_VERSION_LABEL = `Roland-Plan v${APP_VERSION}`
 
 export const RELEASE_NOTES = [
+  {
+    version: '0.8.5',
+    previousVersion: '0.8.4',
+    title: '日历周视图横向排版',
+    items: [
+      '日历新增周视图后，周模式改为七条横向日期行，任务标题拥有更完整的显示空间。',
+      '周视图会隐藏月历式星期栏，并在每一行展示日期、星期、任务统计和打卡统计。',
+      '月视图仍保持原来的格子布局，适合查看整月分布；周视图更适合查看一周细节。',
+    ],
+  },
   {
     version: '0.8.4',
     previousVersion: '0.8.3',

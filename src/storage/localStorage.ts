@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   collapseCompletedTasks: true,
   viewDensity: 'comfortable',
   calendarDisplayMode: 'tasks',
+  calendarViewMode: 'month',
   autoCloudSaveEnabled: true,
   autoCloudSaveIntervalMinutes: 5,
   backupReminderEnabled: true,
