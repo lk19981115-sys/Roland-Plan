@@ -6,12 +6,16 @@ export interface TourStep {
   title: string
   description: string
   placement: 'top' | 'right' | 'bottom' | 'left'
+  mobilePlacement?: 'top' | 'right' | 'bottom' | 'left'
 }
 
 interface OnboardingTourProps {
   isOpen: boolean
   steps: TourStep[]
   onClose: () => void
+  onComplete?: () => void
+  completeLabel?: string
+  skipLabel?: string
 }
 
 interface HighlightBox {
@@ -47,7 +51,14 @@ const getHighlightBox = (element: HTMLElement): HighlightBox => {
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
-export function OnboardingTour({ isOpen, steps, onClose }: OnboardingTourProps) {
+export function OnboardingTour({
+  isOpen,
+  steps,
+  onClose,
+  onComplete,
+  completeLabel = '完成',
+  skipLabel = '跳过',
+}: OnboardingTourProps) {
   const [stepIndex, setStepIndex] = useState(0)
   const [highlight, setHighlight] = useState<HighlightBox | null>(null)
   const currentStep = steps[stepIndex]
@@ -103,6 +114,9 @@ export function OnboardingTour({ isOpen, steps, onClose }: OnboardingTourProps) 
 
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
+  const placement = viewportWidth <= 860
+    ? currentStep.mobilePlacement || currentStep.placement
+    : currentStep.placement
   const fallbackTop = viewportHeight / 2 - 120
   const fallbackLeft = viewportWidth / 2 - 170
   const cardWidth = Math.min(340, viewportWidth - 32)
@@ -114,7 +128,7 @@ export function OnboardingTour({ isOpen, steps, onClose }: OnboardingTourProps) 
       }
     }
 
-    switch (currentStep.placement) {
+    switch (placement) {
       case 'top':
         return {
           top: clamp(highlight.top - 214, 16, viewportHeight - 236),
@@ -141,7 +155,7 @@ export function OnboardingTour({ isOpen, steps, onClose }: OnboardingTourProps) 
 
   const goNext = () => {
     if (isLastStep) {
-      onClose()
+      ;(onComplete || onClose)()
       return
     }
 
@@ -185,7 +199,7 @@ export function OnboardingTour({ isOpen, steps, onClose }: OnboardingTourProps) 
       ) : null}
 
       <section
-        className={`tour-card placement-${currentStep.placement}`}
+        className={`tour-card placement-${placement}`}
         style={{
           top: cardPosition.top,
           left: cardPosition.left,
@@ -202,10 +216,10 @@ export function OnboardingTour({ isOpen, steps, onClose }: OnboardingTourProps) 
         <p>{currentStep.description}</p>
         <div className="tour-actions">
           <button className="button button-ghost" type="button" onClick={onClose}>
-            跳过
+            {skipLabel}
           </button>
           <button className="button button-primary" type="button" onClick={goNext}>
-            {isLastStep ? '完成' : '下一步'}
+            {isLastStep ? completeLabel : '下一步'}
             {!isLastStep ? <ArrowRight size={16} /> : null}
           </button>
         </div>

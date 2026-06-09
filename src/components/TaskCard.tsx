@@ -87,6 +87,7 @@ export function TaskCard({
         <div className="task-title-row">
           <h3>{task.title}</h3>
           <div className="task-badges">
+            {task.projectId ? <span className="project-task-badge">项目任务</span> : null}
             {task.priority !== 'normal' ? (
               <span className={`priority priority-${task.priority}`}>{getPriorityLabel(task.priority)}</span>
             ) : null}

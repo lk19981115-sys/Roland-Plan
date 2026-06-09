@@ -1,4 +1,5 @@
 import type { AppData } from '../types'
+import { inspectCloudSaveRisk, type CloudSaveRisk } from './cloudSaveProtection'
 import { migrateSaveData } from './saveFile'
 import { isSupabaseConfigured, supabase, type CloudSession } from './supabaseClient'
 
@@ -43,6 +44,11 @@ export interface CloudSaveHistory {
   manual: CloudSaveSnapshot | null
   backups: CloudSaveSnapshot[]
   versions: CloudSaveSnapshot[]
+}
+
+export interface CloudSaveRiskCheck {
+  risk: CloudSaveRisk
+  baseline: CloudSaveSnapshot
 }
 
 const requireSupabase = () => {
@@ -322,6 +328,22 @@ export const loadCloudSaveHistory = async (): Promise<CloudSaveHistory> => {
   }
 
   return getBackupHistory(row, autoRows)
+}
+
+export const inspectCloudSaveUpload = async (appData: AppData): Promise<CloudSaveRiskCheck | null> => {
+  const history = await loadCloudSaveHistory()
+  const baseline = [...history.versions].sort((first, second) =>
+    second.updatedAt.localeCompare(first.updatedAt),
+  )[0]
+
+  if (!baseline) {
+    return null
+  }
+
+  return {
+    baseline,
+    risk: inspectCloudSaveRisk(appData, baseline.data),
+  }
 }
 
 export const uploadCloudSave = async (appData: AppData): Promise<string> => {

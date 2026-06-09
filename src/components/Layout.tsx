@@ -4,6 +4,7 @@ import {
   CheckSquare,
   ClipboardList,
   Flag,
+  FolderKanban,
   BookOpen,
   Keyboard,
   Plus,
@@ -42,6 +43,7 @@ interface LayoutProps {
 const navItems: Array<{ id: PageId; label: string; icon: typeof CalendarCheck2 }> = [
   { id: 'today', label: '今日', icon: CalendarCheck2 },
   { id: 'week', label: '本周', icon: CalendarDays },
+  { id: 'projects', label: '项目', icon: FolderKanban },
   { id: 'goals', label: '长期', icon: Target },
   { id: 'recurring', label: '周期', icon: Repeat2 },
   { id: 'calendar', label: '日历', icon: CheckSquare },
@@ -148,6 +150,7 @@ export function Layout({
                 type="button"
                 className={item.id === currentPage ? 'active' : ''}
                 onClick={() => onNavigate(item.id)}
+                data-tour-page={item.id}
               >
                 <Icon size={18} />
                 <span>{item.label}</span>
@@ -267,6 +270,7 @@ export function Layout({
               type="button"
               className={item.id === currentPage ? 'active' : ''}
               onClick={() => onNavigate(item.id)}
+              data-tour-page={item.id}
               aria-label={item.label}
               title={item.label}
             >

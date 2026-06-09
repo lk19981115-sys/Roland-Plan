@@ -2,14 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppData, Settings } from '../types'
 import {
   getCloudSession,
+  inspectCloudSaveUpload,
   onCloudAuthChange,
   uploadAutoCloudSave,
 } from '../storage/cloudSave'
+import { formatCloudSaveRiskMessage } from '../storage/cloudSaveProtection'
 import { isSupabaseConfigured, type CloudSession } from '../storage/supabaseClient'
 
 export interface AutoCloudSaveState {
   isSignedIn: boolean
   isSaving: boolean
+  isProtectionBlocked: boolean
   hasPendingChanges: boolean
   countdownSeconds: number | null
   status: string
@@ -65,6 +68,7 @@ export const useAutoCloudSave = (
 ): AutoCloudSaveState => {
   const [session, setSession] = useState<CloudSession | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isProtectionBlocked, setIsProtectionBlocked] = useState(false)
   const [lastStatus, setLastStatus] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [pendingInfo, setPendingInfo] = useState<{ hasChanges: boolean; since: number | null }>({
@@ -75,10 +79,13 @@ export const useAutoCloudSave = (
   const pendingSignatureRef = useRef<string | null>(null)
   const pendingSinceRef = useRef<number | null>(null)
   const lastSeenSignatureRef = useRef<string | null>(null)
+  const blockedSignatureRef = useRef<string | null>(null)
   const isSavingRef = useRef(false)
 
   const markPending = (signature: string) => {
     pendingSignatureRef.current = signature
+    blockedSignatureRef.current = null
+    setIsProtectionBlocked(false)
     pendingSinceRef.current ??= Date.now()
     setPendingInfo({ hasChanges: true, since: pendingSinceRef.current })
   }
@@ -138,6 +145,7 @@ export const useAutoCloudSave = (
     if (
       !currentData.settings.autoCloudSaveEnabled ||
       !pendingSignatureRef.current ||
+      blockedSignatureRef.current === pendingSignatureRef.current ||
       isSavingRef.current ||
       (typeof navigator !== 'undefined' && !navigator.onLine)
     ) {
@@ -163,12 +171,35 @@ export const useAutoCloudSave = (
     setIsSaving(true)
 
     try {
+      let protectionWarning: string | undefined
+
+      if (currentData.settings.cloudSaveProtectionMode !== 'off') {
+        const check = await withTimeout(inspectCloudSaveUpload(currentData), UPLOAD_TIMEOUT_MS)
+
+        if (check?.risk.hasRisk) {
+          protectionWarning = formatCloudSaveRiskMessage(check.risk)
+
+          if (currentData.settings.cloudSaveProtectionMode === 'standard') {
+            blockedSignatureRef.current = pendingSignatureRef.current
+            setIsProtectionBlocked(true)
+            setLastStatus(`安全保护已暂停自动存档：${protectionWarning}`)
+            return
+          }
+        }
+      }
+
       const result = await withTimeout(uploadAutoCloudSave(currentData), UPLOAD_TIMEOUT_MS)
       pendingSignatureRef.current = null
+      blockedSignatureRef.current = null
+      setIsProtectionBlocked(false)
       pendingSinceRef.current = null
       setPendingInfo({ hasChanges: false, since: null })
       updateSettings({ lastAutoCloudSaveAt: result.updatedAt })
-      setLastStatus(`自动存档 ${result.slotIndex} 已更新`)
+      setLastStatus(
+        protectionWarning
+          ? `自动存档 ${result.slotIndex} 已更新；安全提醒：${protectionWarning}`
+          : `自动存档 ${result.slotIndex} 已更新`,
+      )
     } catch (error) {
       setLastStatus(error instanceof Error ? error.message : '自动云存档失败')
     } finally {
@@ -213,7 +244,7 @@ export const useAutoCloudSave = (
   ])
   const hasPendingChanges = pendingInfo.hasChanges
   const countdownSeconds =
-    hasPendingChanges && data.settings.autoCloudSaveEnabled && session
+    hasPendingChanges && !isProtectionBlocked && data.settings.autoCloudSaveEnabled && session
       ? Math.max(0, Math.ceil((nextSaveAtMs - nowMs) / 1000))
       : null
   const status = !isSupabaseConfigured
@@ -231,6 +262,7 @@ export const useAutoCloudSave = (
   return {
     isSignedIn: Boolean(session),
     isSaving,
+    isProtectionBlocked,
     hasPendingChanges,
     countdownSeconds,
     status,

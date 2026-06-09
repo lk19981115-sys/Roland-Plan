@@ -1,5 +1,6 @@
-import { UNLIMITED_GOAL_TOTAL, type AppData, type LongTermGoalDraft, type LongTermLog, type RecurringTaskDraft, type Settings, type TaskDraft } from '../types'
+import { UNLIMITED_GOAL_TOTAL, type AppData, type LongTermGoalDraft, type LongTermLog, type ProjectDraft, type RecurringTaskDraft, type Settings, type TaskDraft } from '../types'
 import { calculateRecurringStreak, getTodayISO } from '../lib/date'
+import { getProjectTaskDescendantIds, normalizeProjectTasks } from '../lib/projects'
 import { sortTasksByTime } from '../lib/tasks'
 import { createEmptyData, loadAppData, refreshRecurringStreaks, saveAppData } from './localStorage'
 import type { AppDataRepository } from './appRepository'
@@ -18,6 +19,18 @@ const cleanText = (value?: string) => value?.trim() || undefined
 
 const buildSortOrder = (index: number) => (index + 1) * 1000
 
+const moveTaskDate = <T extends { date: string; projectId?: string; plannedStartDate?: string; plannedEndDate?: string }>(
+  task: T,
+  date: string,
+) => ({
+  ...task,
+  date,
+  plannedStartDate: task.projectId && task.plannedStartDate && task.plannedStartDate > date
+    ? date
+    : task.plannedStartDate,
+  plannedEndDate: task.projectId ? date : task.plannedEndDate,
+})
+
 const normalizeGoalCount = (value: unknown) =>
   Math.min(UNLIMITED_GOAL_TOTAL, Math.max(0, Math.floor(Number(value) || 0)))
 
@@ -31,9 +44,7 @@ class LocalAppRepository implements AppDataRepository {
   private snapshot: AppData | null = null
 
   loadData() {
-    this.snapshot = loadAppData()
-    saveAppData(this.snapshot)
-    return this.snapshot
+    return this.commit(loadAppData())
   }
 
   replaceData(data: AppData) {
@@ -66,6 +77,10 @@ class LocalAppRepository implements AppDataRepository {
           tag: draft.tag,
           priority: draft.priority,
           completed: Boolean(draft.completed),
+          projectId: cleanText(draft.projectId),
+          parentTaskId: cleanText(draft.parentTaskId),
+          plannedStartDate: cleanText(draft.plannedStartDate),
+          plannedEndDate: cleanText(draft.plannedEndDate),
           createdAt: timestamp,
           updatedAt: timestamp,
           syncStatus: 'local',
@@ -83,6 +98,20 @@ class LocalAppRepository implements AppDataRepository {
         }
 
         const nextNoTime = draft.noTime ?? task.noTime
+        const nextDate = draft.date ?? task.date
+        const nextProjectId = draft.projectId !== undefined ? cleanText(draft.projectId) : task.projectId
+        const explicitPlannedStart = draft.plannedStartDate !== undefined
+          ? cleanText(draft.plannedStartDate)
+          : task.plannedStartDate
+        const nextPlannedEnd = draft.plannedEndDate !== undefined
+          ? cleanText(draft.plannedEndDate)
+          : nextProjectId && draft.date !== undefined
+            ? nextDate
+            : task.plannedEndDate
+        const nextPlannedStart =
+          nextProjectId && explicitPlannedStart && nextPlannedEnd && explicitPlannedStart > nextPlannedEnd
+            ? nextPlannedEnd
+            : explicitPlannedStart
 
         return {
           ...task,
@@ -102,6 +131,10 @@ class LocalAppRepository implements AppDataRepository {
               : task.endTime,
           description:
             draft.description !== undefined ? cleanText(draft.description) : task.description,
+          projectId: nextProjectId,
+          parentTaskId: draft.parentTaskId !== undefined ? cleanText(draft.parentTaskId) : task.parentTaskId,
+          plannedStartDate: nextProjectId ? nextPlannedStart : undefined,
+          plannedEndDate: nextProjectId ? nextPlannedEnd : undefined,
           noTime: nextNoTime,
           syncStatus: 'local',
           updatedAt: nowISO(),
@@ -113,24 +146,48 @@ class LocalAppRepository implements AppDataRepository {
   deleteTask(id: string) {
     return this.updateSnapshot((current) => ({
       ...current,
-      tasks: current.tasks.filter((task) => task.id !== id),
+      tasks: current.tasks
+        .filter((task) => task.id !== id)
+        .map((task) =>
+          task.parentTaskId === id
+            ? {
+                ...task,
+                parentTaskId: undefined,
+                syncStatus: 'local' as const,
+                updatedAt: nowISO(),
+              }
+            : task,
+        ),
     }))
   }
 
   toggleTask(id: string) {
-    return this.updateSnapshot((current) => ({
-      ...current,
-      tasks: current.tasks.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              completed: !task.completed,
-              syncStatus: 'local',
-              updatedAt: nowISO(),
-            }
-          : task,
-      ),
-    }))
+    return this.updateSnapshot((current) => {
+      const selectedTask = current.tasks.find((task) => task.id === id)
+
+      if (!selectedTask) return current
+
+      const descendants = selectedTask.projectId
+        ? getProjectTaskDescendantIds(current.tasks, selectedTask.id)
+        : new Set<string>()
+      const idsToToggle = new Set([selectedTask.id, ...descendants])
+      const completed = !selectedTask.completed
+      const timestamp = nowISO()
+
+      return {
+        ...current,
+        tasks: current.tasks.map((task) =>
+          idsToToggle.has(task.id)
+            ? {
+                ...task,
+                completed,
+                syncStatus: 'local',
+                updatedAt: timestamp,
+              }
+            : task,
+        ),
+      }
+    })
   }
 
   moveTaskToDate(id: string, date: string) {
@@ -150,8 +207,7 @@ class LocalAppRepository implements AppDataRepository {
         current.tasks.filter((task) => task.date === date && !idsToMove.has(task.id)),
       )
       const movingTasks = sortTasksByTime(current.tasks.filter((task) => idsToMove.has(task.id))).map((task) => ({
-        ...task,
-        date,
+        ...moveTaskDate(task, date),
         syncStatus: 'local' as const,
         updatedAt: timestamp,
       }))
@@ -191,8 +247,7 @@ class LocalAppRepository implements AppDataRepository {
         : targetTasks.length
       const safeInsertIndex = insertIndex >= 0 ? insertIndex : targetTasks.length
       const movedTask = {
-        ...movingTask,
-        date: targetDate,
+        ...moveTaskDate(movingTask, targetDate),
         syncStatus: 'local' as const,
         updatedAt: timestamp,
       }
@@ -220,8 +275,7 @@ class LocalAppRepository implements AppDataRepository {
             .map((task) =>
               task.id === id
                 ? {
-                    ...task,
-                    date: targetDate,
+                    ...moveTaskDate(task, targetDate),
                     syncStatus: 'local' as const,
                     updatedAt: timestamp,
                   }
@@ -231,6 +285,69 @@ class LocalAppRepository implements AppDataRepository {
         ],
       }
     })
+  }
+
+  createProject(draft: ProjectDraft) {
+    const timestamp = nowISO()
+
+    return this.updateSnapshot((current) => ({
+      ...current,
+      projects: [
+        ...current.projects,
+        {
+          id: createId(),
+          title: draft.title.trim(),
+          status: draft.status,
+          plannedStartDate: draft.plannedStartDate,
+          plannedEndDate: draft.plannedEndDate,
+          description: cleanText(draft.description),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          syncStatus: 'local',
+        },
+      ],
+    }))
+  }
+
+  updateProject(id: string, draft: Partial<ProjectDraft>) {
+    return this.updateSnapshot((current) => ({
+      ...current,
+      projects: current.projects.map((project) =>
+        project.id === id
+          ? {
+              ...project,
+              ...draft,
+              title: draft.title?.trim() ?? project.title,
+              description:
+                draft.description !== undefined ? cleanText(draft.description) : project.description,
+              syncStatus: 'local',
+              updatedAt: nowISO(),
+            }
+          : project,
+      ),
+    }))
+  }
+
+  deleteProject(id: string) {
+    const timestamp = nowISO()
+
+    return this.updateSnapshot((current) => ({
+      ...current,
+      projects: current.projects.filter((project) => project.id !== id),
+      tasks: current.tasks.map((task) =>
+        task.projectId === id
+          ? {
+              ...task,
+              projectId: undefined,
+              parentTaskId: undefined,
+              plannedStartDate: undefined,
+              plannedEndDate: undefined,
+              syncStatus: 'local' as const,
+              updatedAt: timestamp,
+            }
+          : task,
+      ),
+    }))
   }
 
   createRecurringTask(draft: RecurringTaskDraft) {
@@ -531,7 +648,10 @@ class LocalAppRepository implements AppDataRepository {
   }
 
   private commit(data: AppData) {
-    this.snapshot = refreshRecurringStreaks(data)
+    this.snapshot = refreshRecurringStreaks({
+      ...data,
+      tasks: normalizeProjectTasks(data.tasks, data.projects),
+    })
     saveAppData(this.snapshot)
     return this.snapshot
   }

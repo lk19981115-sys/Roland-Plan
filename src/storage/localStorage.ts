@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   calendarViewMode: 'month',
   autoCloudSaveEnabled: true,
   autoCloudSaveIntervalMinutes: 5,
+  cloudSaveProtectionMode: 'standard',
   backupReminderEnabled: true,
   backupReminderIntervalDays: 7,
 }
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export const createEmptyData = (): AppData => ({
   schemaVersion: SCHEMA_VERSION,
   tasks: [],
+  projects: [],
   recurringTasks: [],
   longTermGoals: [],
   settings: { ...DEFAULT_SETTINGS },

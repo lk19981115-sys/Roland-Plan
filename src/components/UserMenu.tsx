@@ -16,8 +16,8 @@ import {
   onCloudAuthChange,
   signInWithGoogleAccount,
   signOutCloudAccount,
-  uploadCloudSave,
 } from '../storage/cloudSave'
+import { uploadProtectedManualCloudSave } from '../storage/protectedCloudSave'
 import { isSupabaseConfigured, type CloudSession } from '../storage/supabaseClient'
 import { Modal } from './Modal'
 
@@ -132,8 +132,18 @@ export function UserMenu({ data, onReplaceData, onNavigate }: UserMenuProps) {
 
   const handleUpload = () => {
     runCloudAction(async () => {
-      const updatedAt = await uploadCloudSave(data)
-      setStatus(`手动存档已更新：${new Date(updatedAt).toLocaleString('zh-CN')}`)
+      const result = await uploadProtectedManualCloudSave(data)
+
+      if (result.cancelled || !result.updatedAt) {
+        setStatus('已取消上传，云端手动存档没有变化。')
+        return
+      }
+
+      setStatus(
+        result.warning
+          ? `已确认变化并更新手动存档：${new Date(result.updatedAt).toLocaleString('zh-CN')}`
+          : `手动存档已更新：${new Date(result.updatedAt).toLocaleString('zh-CN')}`,
+      )
     })
   }
 

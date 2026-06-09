@@ -68,6 +68,11 @@ export function TaskForm({
 
   return (
     <form className="form task-form" onSubmit={handleSubmit}>
+      {initialTask?.projectId ? (
+        <div className="project-task-form-note">
+          这是一个项目任务。修改日期时，项目计划完成日期也会同步更新；完整计划可在项目页编辑。
+        </div>
+      ) : null}
       <label className="field field-wide">
         <span>任务标题</span>
         <input

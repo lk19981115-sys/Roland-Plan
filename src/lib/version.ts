@@ -1,11 +1,39 @@
-export const APP_VERSION = '0.8.5'
+export const APP_VERSION = '0.9.0'
 
-export const APP_VERSION_LABEL = `Roland-Plan v${APP_VERSION}`
+export const APP_RELEASE_CHANNEL = '内测版'
+
+export const APP_VERSION_LABEL = `Roland-Plan v${APP_VERSION} ${APP_RELEASE_CHANNEL}`
 
 export const RELEASE_NOTES = [
   {
+    version: '0.9.0',
+    previousVersion: '0.8.6',
+    date: '2026-06-09',
+    title: '正式发布前的完整内测版',
+    items: [
+      'Roland-Plan 进入正式产品发布前的内测阶段，今日、本周、项目、长期、周期、日历与回顾已经形成完整使用闭环。',
+      '新增项目规划系统，支持项目概览、分层父子任务清单和甘特图，并继续使用统一 tasks 数据源。',
+      '项目父任务会随全部下级任务自动完成或取消完成，子任务计划时间严格锁定在直属父任务或项目周期内。',
+      '保留本地存档、云存档、自动备份、历史恢复、Excel 导出与数据健康检查，继续保护长期使用数据。',
+      '内测阶段将重点验证云存档迁移、项目规划、移动端适配与长期使用稳定性，建议定期保留本地存档。',
+    ],
+  },
+  {
+    version: '0.8.6',
+    previousVersion: '0.8.5',
+    date: '2026-06-09',
+    title: '可选云存档安全保护',
+    items: [
+      '新增标准保护、仅提醒和关闭保护三种云存档安全模式，可由用户自行选择。',
+      '标准保护会在检测到任务、打卡记录或长期目标日志异常减少时暂停自动云存档，避免意外覆盖历史数据。',
+      '用户主动删除或整理数据后，仍可通过手动云存档确认变化并继续保存。',
+      '存档结构升级到 schemaVersion v11，旧云存档会自动迁移并保留原有任务与进度。',
+    ],
+  },
+  {
     version: '0.8.5',
     previousVersion: '0.8.4',
+    date: '2026-05-30',
     title: '日历周视图横向排版',
     items: [
       '日历新增周视图后，周模式改为七条横向日期行，任务标题拥有更完整的显示空间。',
@@ -16,6 +44,7 @@ export const RELEASE_NOTES = [
   {
     version: '0.8.4',
     previousVersion: '0.8.3',
+    date: '2026-05-29',
     title: '月历任务显示模式增强',
     items: [
       '月历新增显示方式下拉菜单，可在“任务”“简洁”“全部”之间切换，默认显示普通任务。',
@@ -26,6 +55,7 @@ export const RELEASE_NOTES = [
   {
     version: '0.8.3',
     previousVersion: '0.8.2',
+    date: '2026-05-27',
     title: '轻松纸质风格与中文手账字体',
     items: [
       '顶栏新增界面风格切换，可在“简约”和“轻松”之间切换，默认仍为简约。',
@@ -36,6 +66,7 @@ export const RELEASE_NOTES = [
   {
     version: '0.8.2',
     previousVersion: '0.8.1',
+    date: '2026-05-26',
     title: '移动端导航与日历打卡视图增强',
     items: [
       '移动端底部导航改为页面常驻，不需要滚动到页面底部也能切换页面。',
@@ -46,6 +77,7 @@ export const RELEASE_NOTES = [
   {
     version: '0.8.1',
     previousVersion: '0.8.0',
+    date: '2026-05-25',
     title: '顶部快捷任务输入智能识别系统',
     items: [
       '顶部快捷输入现在会识别日期、星期、时间点和早上/下午/晚上等时段词。',

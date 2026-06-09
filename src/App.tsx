@@ -9,11 +9,12 @@ import { useAppData } from './hooks/useAppData'
 import { useAutoCloudSave } from './hooks/useAutoCloudSave'
 import { useNotifications } from './hooks/useNotifications'
 import { TaskSelectionProvider } from './hooks/useTaskSelection'
-import { APP_VERSION, RELEASE_NOTES, parseQuickTaskInput, type QuickTaskParseResult } from './lib'
+import { APP_RELEASE_CHANNEL, APP_VERSION, RELEASE_NOTES, parseQuickTaskInput, type QuickTaskParseResult } from './lib'
 import { Modal } from './components/Modal'
 import { TaskForm } from './components/TaskForm'
 import { CalendarPage } from './pages/CalendarPage'
 import { GoalsPage } from './pages/GoalsPage'
+import { ProjectsPage } from './pages/ProjectsPage'
 import { RecurringPage } from './pages/RecurringPage'
 import { ReviewPage } from './pages/ReviewPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -27,6 +28,7 @@ type TourId = Exclude<PageId, 'settings'>
 
 const LEGACY_ONBOARDING_STORAGE_KEY = 'roland-plan-onboarding-v1'
 const ENTRY_GATE_STORAGE_KEY = 'roland-plan-entry-gate-v3'
+const PROJECT_DISCOVERY_STORAGE_KEY = `roland-plan-project-discovery-${APP_VERSION}`
 
 const getTourStorageKey = (tourId: TourId) => `roland-plan-tour-${tourId}-v1`
 const getReleaseStorageKey = (version: string) => `roland-plan-release-seen-${version}`
@@ -72,9 +74,39 @@ const markReleaseAnnouncementSeen = (version: string) => {
   }
 }
 
+const hasSeenProjectDiscovery = () => {
+  try {
+    return (
+      localStorage.getItem(PROJECT_DISCOVERY_STORAGE_KEY) === 'done' ||
+      hasCompletedTour('projects')
+    )
+  } catch {
+    return false
+  }
+}
+
+const markProjectDiscoverySeen = () => {
+  try {
+    localStorage.setItem(PROJECT_DISCOVERY_STORAGE_KEY, 'done')
+  } catch {
+    // The discovery guide can still close when storage is unavailable.
+  }
+}
+
+const PROJECT_DISCOVERY_STEPS: TourStep[] = [
+  {
+    target: '[data-tour-page="projects"]',
+    title: '新的项目页面已经准备好了',
+    description: '大型计划现在可以拆成父子任务，并通过任务清单和甘特图安排执行时间。点击进入，快速认识项目系统。',
+    placement: 'right',
+    mobilePlacement: 'top',
+  },
+]
+
 const PAGE_TITLES: Record<PageId, string> = {
   today: '今日',
   week: '本周',
+  projects: '项目',
   goals: '长期',
   recurring: '周期',
   calendar: '日历',
@@ -89,7 +121,7 @@ const TOUR_DEFINITIONS: Record<TourId, { id: TourId; steps: TourStep[] }> = {
       {
         target: '[data-tour="nav"]',
         title: '从这里切换页面',
-        description: '今日、本周、长期、周期、日历、回顾和设置都在这里。你可以把它当成主菜单。',
+        description: '今日、本周、项目、长期、周期、日历、回顾和设置都在这里。你可以把它当成主菜单。',
         placement: 'right',
       },
       {
@@ -150,6 +182,29 @@ const TOUR_DEFINITIONS: Record<TourId, { id: TourId; steps: TourStep[] }> = {
         title: '下周预告',
         description: '下周任务会提前出现在这里。到了下周，它们会自然进入本周视图，不需要迁移。',
         placement: 'top',
+      },
+    ],
+  },
+  projects: {
+    id: 'projects',
+    steps: [
+      {
+        target: '[data-tour="projects-main"]',
+        title: '大型计划集中在这里',
+        description: '项目页把同一套普通任务组织成项目，可以在概览、分层任务清单和甘特图之间切换。',
+        placement: 'bottom',
+      },
+      {
+        target: '.project-tabs',
+        title: '三种项目视图',
+        description: '概览适合查看进度，任务清单用于拆分父子任务，甘特图用于查看任务开始和完成日期。',
+        placement: 'bottom',
+      },
+      {
+        target: '.project-context-bar',
+        title: '切换与管理项目',
+        description: '从这里切换当前项目，也可以编辑项目计划日期或安全删除项目。删除项目不会删除原任务。',
+        placement: 'bottom',
       },
     ],
   },
@@ -338,9 +393,11 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [activeTourId, setActiveTourId] = useState<TourId | null>(null)
   const [isReleaseAnnouncementOpen, setIsReleaseAnnouncementOpen] = useState(false)
+  const [isProjectDiscoveryOpen, setIsProjectDiscoveryOpen] = useState(false)
   const [hasSeenCurrentRelease, setHasSeenCurrentRelease] = useState(() =>
     hasSeenReleaseAnnouncement(APP_VERSION),
   )
+  const [hasSeenProjectDiscoveryGuide, setHasSeenProjectDiscoveryGuide] = useState(hasSeenProjectDiscovery)
   const [quickAddFocusSignal, setQuickAddFocusSignal] = useState(0)
   const [quickTaskParseResult, setQuickTaskParseResult] = useState<QuickTaskParseResult | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -421,7 +478,7 @@ function App() {
   }, [enterApp])
 
   useEffect(() => {
-    if (!isTourId(page) || activeTourId || isSearchOpen || shortcutEditingTaskId) {
+    if (!isTourId(page) || activeTourId || isProjectDiscoveryOpen || isSearchOpen || shortcutEditingTaskId) {
       return
     }
 
@@ -436,11 +493,16 @@ function App() {
     }, 450)
 
     return () => window.clearTimeout(timer)
-  }, [activeTourId, isSearchOpen, page, shortcutEditingTaskId])
+  }, [activeTourId, isProjectDiscoveryOpen, isSearchOpen, page, shortcutEditingTaskId])
 
   const closeActiveTour = useCallback(() => {
     if (activeTourId) {
       markTourCompleted(activeTourId)
+
+      if (activeTourId === 'projects') {
+        markProjectDiscoverySeen()
+        setHasSeenProjectDiscoveryGuide(true)
+      }
     }
 
     setActiveTourId(null)
@@ -450,6 +512,19 @@ function App() {
     markReleaseAnnouncementSeen(APP_VERSION)
     setHasSeenCurrentRelease(true)
     setIsReleaseAnnouncementOpen(false)
+  }, [])
+
+  const closeProjectDiscovery = useCallback(() => {
+    markProjectDiscoverySeen()
+    setHasSeenProjectDiscoveryGuide(true)
+    setIsProjectDiscoveryOpen(false)
+  }, [])
+
+  const enterProjectsFromDiscovery = useCallback(() => {
+    markProjectDiscoverySeen()
+    setHasSeenProjectDiscoveryGuide(true)
+    setIsProjectDiscoveryOpen(false)
+    setPage('projects')
   }, [])
 
   const replayCurrentTour = useCallback(() => {
@@ -466,6 +541,7 @@ function App() {
       isLaunchingApp ||
       hasSeenCurrentRelease ||
       isReleaseAnnouncementOpen ||
+      isProjectDiscoveryOpen ||
       activeTourId ||
       isSearchOpen ||
       shortcutEditingTaskId ||
@@ -490,9 +566,46 @@ function App() {
     hasEnteredApp,
     hasSeenCurrentRelease,
     isLaunchingApp,
+    isProjectDiscoveryOpen,
     isReleaseAnnouncementOpen,
     isSearchOpen,
     page,
+    quickTaskParseResult,
+    shortcutEditingTaskId,
+  ])
+
+  useEffect(() => {
+    if (
+      !hasEnteredApp ||
+      isLaunchingApp ||
+      !hasSeenCurrentRelease ||
+      hasSeenProjectDiscoveryGuide ||
+      isProjectDiscoveryOpen ||
+      isReleaseAnnouncementOpen ||
+      activeTourId ||
+      isSearchOpen ||
+      shortcutEditingTaskId ||
+      quickTaskParseResult
+    ) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      if (!hasOpenDialog()) {
+        setIsProjectDiscoveryOpen(true)
+      }
+    }, 360)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    activeTourId,
+    hasEnteredApp,
+    hasSeenCurrentRelease,
+    hasSeenProjectDiscoveryGuide,
+    isLaunchingApp,
+    isProjectDiscoveryOpen,
+    isReleaseAnnouncementOpen,
+    isSearchOpen,
     quickTaskParseResult,
     shortcutEditingTaskId,
   ])
@@ -685,6 +798,8 @@ function App() {
         return <WeekPage data={data} actions={actions} />
       case 'goals':
         return <GoalsPage data={data} actions={actions} />
+      case 'projects':
+        return <ProjectsPage data={data} actions={actions} />
       case 'recurring':
         return <RecurringPage data={data} actions={actions} />
       case 'calendar':
@@ -776,10 +891,23 @@ function App() {
           onClose={closeActiveTour}
         />
       ) : null}
+      {isProjectDiscoveryOpen ? (
+        <OnboardingTour
+          key="project-discovery"
+          isOpen
+          steps={PROJECT_DISCOVERY_STEPS}
+          skipLabel="暂不进入"
+          completeLabel="进入项目页面"
+          onClose={closeProjectDiscovery}
+          onComplete={enterProjectsFromDiscovery}
+        />
+      ) : null}
       {isReleaseAnnouncementOpen ? (
         <ReleaseAnnouncement
           version={latestReleaseNote.version}
+          channel={APP_RELEASE_CHANNEL}
           previousVersion={latestReleaseNote.previousVersion}
+          date={latestReleaseNote.date}
           title={latestReleaseNote.title}
           items={latestReleaseNote.items}
           onClose={closeReleaseAnnouncement}

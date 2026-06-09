@@ -1,5 +1,5 @@
-import type { AppData, Task } from '../types'
-import { TASK_PRIORITIES, TASK_TAGS } from '../types'
+import type { AppData, Project, Task } from '../types'
+import { PROJECT_STATUSES, TASK_PRIORITIES, TASK_TAGS } from '../types'
 import {
   calculateCompletionRate,
   calculateLongTermTodayCount,
@@ -67,8 +67,8 @@ const safeSheetName = (name: string) =>
 
 const cellType = (value: CellValue) => (typeof value === 'number' && Number.isFinite(value) ? 'Number' : 'String')
 
-const buildTaskRows = (tasks: Task[]): CellValue[][] => [
-  ['日期', '星期', '标题', '时间', '标签', '优先级', '状态', '备注', '创建时间', '更新时间'],
+const buildTaskRows = (tasks: Task[], projects: Project[] = [], allTasks: Task[] = tasks): CellValue[][] => [
+  ['日期', '星期', '标题', '时间', '标签', '优先级', '状态', '所属项目', '父任务', '计划开始', '计划完成', '备注', '创建时间', '更新时间'],
   ...sortTasksByTime(tasks).map((task) => [
     task.date,
     formatWeekday(task.date),
@@ -77,6 +77,10 @@ const buildTaskRows = (tasks: Task[]): CellValue[][] => [
     tagLabel(task.tag),
     priorityLabel(task.priority),
     taskStatus(task.completed),
+    projects.find((project) => project.id === task.projectId)?.title || '',
+    allTasks.find((candidate) => candidate.id === task.parentTaskId)?.title || '',
+    task.plannedStartDate || '',
+    task.plannedEndDate || '',
     task.description || '',
     task.createdAt,
     task.updatedAt,
@@ -172,6 +176,7 @@ export const exportReportFile = (data: AppData): void => {
         ['今日', formatReadableDate(today)],
         ['本周范围', `${weekRange.start} 至 ${weekRange.end}`],
         ['普通任务总数', data.tasks.length],
+        ['项目数', data.projects.length],
         ['未完成普通任务', openTasks.length],
         ['已完成普通任务', completedTasks.length],
         ['普通任务总完成率', `${calculateCompletionRate(data.tasks)}%`],
@@ -187,19 +192,36 @@ export const exportReportFile = (data: AppData): void => {
     },
     {
       name: '今日',
-      rows: buildTaskRows(todayTasks),
+      rows: buildTaskRows(todayTasks, data.projects, data.tasks),
     },
     {
       name: '本周',
       rows: [
         ['本周范围', `${weekRange.start} 至 ${weekRange.end}`],
         [],
-        ...buildTaskRows(weekTasks),
+        ...buildTaskRows(weekTasks, data.projects, data.tasks),
       ],
     },
     {
       name: '全部任务',
-      rows: buildTaskRows(data.tasks),
+      rows: buildTaskRows(data.tasks, data.projects, data.tasks),
+    },
+    {
+      name: '项目',
+      rows: [
+        ['项目名称', '状态', '计划开始', '计划完成', '关联任务数', '完成任务数', '说明', '创建时间', '更新时间'],
+        ...data.projects.map((project) => [
+          project.title,
+          PROJECT_STATUSES.find((status) => status.value === project.status)?.label || project.status,
+          project.plannedStartDate,
+          project.plannedEndDate,
+          data.tasks.filter((task) => task.projectId === project.id).length,
+          data.tasks.filter((task) => task.projectId === project.id && task.completed).length,
+          project.description || '',
+          project.createdAt,
+          project.updatedAt,
+        ]),
+      ],
     },
     {
       name: '长期目标',

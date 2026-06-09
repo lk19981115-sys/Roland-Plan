@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 10
+export const SCHEMA_VERSION = 12
 
 export const UNLIMITED_GOAL_TOTAL = 2147483647
 
@@ -22,7 +22,11 @@ export type CalendarDisplayMode = 'tasks' | 'compact' | 'all'
 
 export type CalendarViewMode = 'month' | 'week'
 
-export type PageId = 'today' | 'week' | 'goals' | 'recurring' | 'calendar' | 'review' | 'settings'
+export type CloudSaveProtectionMode = 'standard' | 'warn' | 'off'
+
+export type ProjectStatus = 'active' | 'paused' | 'completed'
+
+export type PageId = 'today' | 'week' | 'projects' | 'goals' | 'recurring' | 'calendar' | 'review' | 'settings'
 
 export interface SyncMetadata {
   remoteId?: string
@@ -42,6 +46,10 @@ export interface Task extends SyncMetadata {
   priority: TaskPriority
   completed: boolean
   sortOrder?: number
+  projectId?: string
+  parentTaskId?: string
+  plannedStartDate?: string
+  plannedEndDate?: string
   createdAt: string
   updatedAt: string
 }
@@ -56,6 +64,29 @@ export interface TaskDraft {
   tag: TaskTag
   priority: TaskPriority
   completed?: boolean
+  projectId?: string
+  parentTaskId?: string
+  plannedStartDate?: string
+  plannedEndDate?: string
+}
+
+export interface Project extends SyncMetadata {
+  id: string
+  title: string
+  status: ProjectStatus
+  plannedStartDate: string
+  plannedEndDate: string
+  description?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectDraft {
+  title: string
+  status: ProjectStatus
+  plannedStartDate: string
+  plannedEndDate: string
+  description?: string
 }
 
 export interface RecurringTask extends SyncMetadata {
@@ -114,6 +145,7 @@ export interface Settings {
   calendarViewMode: CalendarViewMode
   autoCloudSaveEnabled: boolean
   autoCloudSaveIntervalMinutes: number
+  cloudSaveProtectionMode: CloudSaveProtectionMode
   lastAutoCloudSaveAt?: string
   lastBackupAt?: string
   backupReminderEnabled: boolean
@@ -132,6 +164,7 @@ export interface MigrationRecord {
 export interface AppData {
   schemaVersion: number
   tasks: Task[]
+  projects: Project[]
   recurringTasks: RecurringTask[]
   longTermGoals: LongTermGoal[]
   settings: Settings
@@ -155,6 +188,12 @@ export const TASK_PRIORITIES: Array<{ value: TaskPriority; label: string }> = [
   { value: 'normal', label: '普通' },
   { value: 'important', label: '重要' },
   { value: 'must', label: '必做' },
+]
+
+export const PROJECT_STATUSES: Array<{ value: ProjectStatus; label: string }> = [
+  { value: 'active', label: '进行中' },
+  { value: 'paused', label: '已暂停' },
+  { value: 'completed', label: '已完成' },
 ]
 
 export const ACCENT_COLORS: Array<{ value: AccentColor; label: string }> = [

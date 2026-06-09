@@ -3,7 +3,9 @@ import { useEffect } from 'react'
 
 interface ReleaseAnnouncementProps {
   version: string
+  channel?: string
   previousVersion: string
+  date: string
   title: string
   items: readonly string[]
   onClose: () => void
@@ -11,7 +13,9 @@ interface ReleaseAnnouncementProps {
 
 export function ReleaseAnnouncement({
   version,
+  channel,
   previousVersion,
+  date,
   title,
   items,
   onClose,
@@ -42,7 +46,8 @@ export function ReleaseAnnouncement({
           <Sparkles size={24} />
         </div>
         <span className="release-announcement-eyebrow">版本更新</span>
-        <h2>Roland-Plan v{version}</h2>
+        <h2>Roland-Plan v{version}{channel ? ` ${channel}` : ''}</h2>
+        <span className="release-announcement-date">更新日期：{date}</span>
         <p>
           从 v{previousVersion} 到 v{version}，{title}
         </p>

@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Cloud, Download, LogIn, LogOut, RefreshCcw, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import type { AccentColor, AppData, ThemeMode } from '../types'
+import type { AccentColor, AppData, CloudSaveProtectionMode, ThemeMode } from '../types'
 import { ACCENT_COLORS, SCHEMA_VERSION } from '../types'
 import type { AppActions } from '../hooks/useAppData'
 import {
@@ -12,14 +12,14 @@ import {
   signInWithGoogleAccount,
   signOutCloudAccount,
   signUpCloudAccount,
-  uploadCloudSave,
   type CloudSaveSnapshot,
 } from '../storage/cloudSave'
+import { uploadProtectedManualCloudSave } from '../storage/protectedCloudSave'
 import { exportReportFile } from '../storage/reportExport'
 import { exportSaveFile, importSaveFile } from '../storage/saveFile'
 import { isSupabaseConfigured, type CloudSession } from '../storage/supabaseClient'
 import { Modal } from '../components/Modal'
-import { addDaysISO, APP_VERSION_LABEL, getTodayISO, RELEASE_NOTES } from '../lib'
+import { addDaysISO, APP_VERSION_LABEL, getProjectTaskDateBounds, getTodayISO, RELEASE_NOTES } from '../lib'
 import type { AutoCloudSaveState } from '../hooks/useAutoCloudSave'
 
 interface SettingsPageProps {
@@ -133,6 +133,26 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
     const duplicateOpenTasks = countDuplicateOpenTasks(data.tasks)
     const overdueTasks = data.tasks.filter((task) => !task.completed && task.date < today).length
     const goalOverflow = data.longTermGoals.filter((goal) => !goal.unlimited && goal.completed > goal.total).length
+    const projectIds = new Set(data.projects.map((project) => project.id))
+    const taskIds = new Set(data.tasks.map((task) => task.id))
+    const orphanProjectTasks = data.tasks.filter((task) => task.projectId && !projectIds.has(task.projectId)).length
+    const orphanChildTasks = data.tasks.filter((task) => task.parentTaskId && !taskIds.has(task.parentTaskId)).length
+    const invalidProjectRanges = data.tasks.filter(
+      (task) =>
+        task.projectId &&
+        (!task.plannedStartDate ||
+          !task.plannedEndDate ||
+          task.plannedStartDate > task.plannedEndDate),
+    ).length
+    const outsideProjectBounds = data.tasks.filter((task) => {
+      if (!task.projectId || !task.plannedStartDate || !task.plannedEndDate) return false
+
+      const bounds = getProjectTaskDateBounds(task.projectId, task.parentTaskId, data.projects, data.tasks)
+      return Boolean(
+        bounds &&
+        (task.plannedStartDate < bounds.start || task.plannedEndDate > bounds.end),
+      )
+    }).length
     const schemaMismatch = data.schemaVersion !== SCHEMA_VERSION ? 1 : 0
 
     return [
@@ -141,10 +161,14 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
       { label: '时间段异常', count: invalidTimeTasks, level: 'danger' },
       { label: '重复未完成任务', count: duplicateOpenTasks, level: 'warning' },
       { label: '长期目标进度超出总量', count: goalOverflow, level: 'danger' },
+      { label: '项目任务计划日期异常', count: invalidProjectRanges, level: 'danger' },
+      { label: '项目任务超出允许时间范围', count: outsideProjectBounds, level: 'danger' },
+      { label: '任务引用了不存在的项目', count: orphanProjectTasks, level: 'danger' },
+      { label: '子任务引用了不存在的父任务', count: orphanChildTasks, level: 'danger' },
       { label: '存档版本不一致', count: schemaMismatch, level: 'danger' },
       { label: '逾期未完成任务', count: overdueTasks, level: 'warning' },
     ]
-  }, [data.longTermGoals, data.schemaVersion, data.tasks, today])
+  }, [data.longTermGoals, data.projects, data.schemaVersion, data.tasks, today])
   const healthWarningCount = healthItems.filter((item) => item.count > 0).length
   const cloudVersionSlots = useMemo(
     () => [
@@ -333,9 +357,20 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
 
   const handleCloudUpload = () => {
     runCloudAction(async () => {
-      const updatedAt = await uploadCloudSave(data)
+      const result = await uploadProtectedManualCloudSave(data)
+
+      if (result.cancelled || !result.updatedAt) {
+        setCloudInfo('已取消上传，云端手动存档没有变化。')
+        setMessage('已取消手动云存档。')
+        return
+      }
+
       await refreshCloudHistory()
-      setCloudInfo(`手动存档已更新：${formatCloudDate(updatedAt)}。自动存档槽位不会受到影响。`)
+      setCloudInfo(
+        result.warning
+          ? `已确认数据变化并更新手动存档：${formatCloudDate(result.updatedAt)}。`
+          : `手动存档已更新：${formatCloudDate(result.updatedAt)}。自动存档槽位不会受到影响。`,
+      )
       setMessage('当前本地存档已上传到云端。')
     })
   }
@@ -467,6 +502,10 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
                 <strong>{data.tasks.length}</strong>
               </div>
               <div>
+                <span>项目</span>
+                <strong>{data.projects.length}</strong>
+              </div>
+              <div>
                 <span>长期目标</span>
                 <strong>{data.longTermGoals.length}</strong>
               </div>
@@ -556,10 +595,35 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
                   </label>
                   <div className="cloud-auto-meta">
                     <span>状态：{autoCloudSave.status}</span>
-                    <span>倒计时：{autoCloudSave.isSaving ? '上传中' : formatCountdown(autoCloudSave.countdownSeconds)}</span>
+                    <span>
+                      倒计时：
+                      {autoCloudSave.isSaving
+                        ? '上传中'
+                        : autoCloudSave.isProtectionBlocked
+                          ? '安全保护暂停'
+                          : formatCountdown(autoCloudSave.countdownSeconds)}
+                    </span>
                     <span>上次自动存档：{data.settings.lastAutoCloudSaveAt ? formatCloudDate(data.settings.lastAutoCloudSaveAt) : '尚未自动存档'}</span>
                     <span>下次写入：自动存档 {nextAutoCloudSlot}</span>
                   </div>
+                  <label className="field cloud-protection-field">
+                    <span>云存档安全保护</span>
+                    <select
+                      value={data.settings.cloudSaveProtectionMode}
+                      onChange={(event) =>
+                        actions.updateSettings({
+                          cloudSaveProtectionMode: event.target.value as CloudSaveProtectionMode,
+                        })
+                      }
+                    >
+                      <option value="standard">标准保护：异常自动存档暂停，手动保存需确认</option>
+                      <option value="warn">仅提醒：异常自动存档继续，手动保存需确认</option>
+                      <option value="off">关闭保护：不检查数据减少</option>
+                    </select>
+                    <em>
+                      系统会和云端最新存档比较。你主动删除内容后，仍可通过手动存档确认覆盖。
+                    </em>
+                  </label>
                   <div className="button-row">
                     <button
                       className="button button-ghost"
@@ -846,7 +910,9 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
                 <div className="release-note-item" key={release.version}>
                   <div>
                     <strong>v{release.version}</strong>
-                    <span>对比 v{release.previousVersion}</span>
+                    <span className="release-note-meta">
+                      对比 v{release.previousVersion} · 更新日期：{release.date}
+                    </span>
                   </div>
                   <h4>{release.title}</h4>
                   <ul>
@@ -879,7 +945,7 @@ export function SettingsPage({ data, actions, autoCloudSave }: SettingsPageProps
             }}
           >
             <div className="reset-warning">
-              <strong>这个操作会清空当前浏览器里的任务、周期打卡、长期目标和设置。</strong>
+              <strong>这个操作会清空当前浏览器里的任务、项目、周期打卡、长期目标和设置。</strong>
               <span>建议先导出一份本地存档，再执行重置。</span>
             </div>
             <label className="field field-wide">

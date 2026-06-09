@@ -1,4 +1,4 @@
-import type { AppData, LongTermGoalDraft, RecurringTaskDraft, Settings, TaskDraft } from '../types'
+import type { AppData, LongTermGoalDraft, ProjectDraft, RecurringTaskDraft, Settings, TaskDraft } from '../types'
 
 export type RepositoryMode = 'local'
 
@@ -21,6 +21,9 @@ export interface AppDataRepository {
   moveTaskToDate: (id: string, date: string) => AppData
   moveTasksToDate: (ids: string[], date: string) => AppData
   reorderTask: (id: string, targetDate: string, beforeTaskId?: string) => AppData
+  createProject: (draft: ProjectDraft) => AppData
+  updateProject: (id: string, draft: Partial<ProjectDraft>) => AppData
+  deleteProject: (id: string) => AppData
   createRecurringTask: (draft: RecurringTaskDraft) => AppData
   updateRecurringTask: (id: string, draft: Partial<RecurringTaskDraft>) => AppData
   deleteRecurringTask: (id: string) => AppData

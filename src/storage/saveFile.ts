@@ -3,6 +3,7 @@ import type {
   LongTermGoal,
   LongTermLog,
   MigrationRecord,
+  Project,
   RecurringTask,
   Settings,
   SyncMetadata,
@@ -19,6 +20,8 @@ const VIEW_DENSITY_VALUES = ['comfortable', 'compact']
 const APPEARANCE_STYLE_VALUES = ['minimal', 'relaxed']
 const CALENDAR_DISPLAY_MODE_VALUES = ['tasks', 'compact', 'all']
 const CALENDAR_VIEW_MODE_VALUES = ['month', 'week']
+const CLOUD_SAVE_PROTECTION_MODE_VALUES = ['standard', 'warn', 'off']
+const PROJECT_STATUS_VALUES = ['active', 'paused', 'completed']
 const SYNC_STATUS_VALUES = ['local', 'pending', 'synced', 'error']
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^\d{2}:\d{2}$/
@@ -63,6 +66,8 @@ const isTimeString = (value: unknown): value is string => {
 }
 
 const isOptionalTimeString = (value: unknown): boolean => value === undefined || isTimeString(value)
+
+const isOptionalDateString = (value: unknown): boolean => value === undefined || isDateString(value)
 
 const isWeekKey = (value: unknown): value is string => {
   if (!isString(value) || !WEEK_PATTERN.test(value)) {
@@ -185,6 +190,14 @@ const getMigrationNotes = (fromVersion: number, toVersion: number): string[] => 
     notes.push('加入日历月/周视图设置，可在整月总览和一周精排之间切换。')
   }
 
+  if (fromVersion <= 10) {
+    notes.push('加入可选云存档安全保护，降低异常空存档覆盖云端历史的风险。')
+  }
+
+  if (fromVersion <= 11) {
+    notes.push('加入项目系统、项目任务计划日期、父子任务和甘特图数据结构。')
+  }
+
   if (fromVersion === toVersion) {
     notes.push('修复当前版本存档结构缺失的字段。')
   }
@@ -212,6 +225,30 @@ const isTask = (value: unknown): value is Task => {
     TASK_PRIORITY_VALUES.includes(value.priority) &&
     isBoolean(value.completed) &&
     isOptionalNumber(value.sortOrder) &&
+    isOptionalString(value.projectId) &&
+    isOptionalString(value.parentTaskId) &&
+    isOptionalDateString(value.plannedStartDate) &&
+    isOptionalDateString(value.plannedEndDate) &&
+    isOptionalString(value.description) &&
+    isString(value.createdAt) &&
+    isString(value.updatedAt) &&
+    isSyncMetadata(value)
+  )
+}
+
+const isProject = (value: unknown): value is Project => {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isString(value.id) &&
+    isString(value.title) &&
+    isString(value.status) &&
+    PROJECT_STATUS_VALUES.includes(value.status) &&
+    isDateString(value.plannedStartDate) &&
+    isDateString(value.plannedEndDate) &&
+    value.plannedStartDate <= value.plannedEndDate &&
     isOptionalString(value.description) &&
     isString(value.createdAt) &&
     isString(value.updatedAt) &&
@@ -302,6 +339,8 @@ const isSettings = (value: unknown): value is Settings => {
     isNumber(value.autoCloudSaveIntervalMinutes) &&
     value.autoCloudSaveIntervalMinutes >= 1 &&
     value.autoCloudSaveIntervalMinutes <= 60 &&
+    isString(value.cloudSaveProtectionMode) &&
+    CLOUD_SAVE_PROTECTION_MODE_VALUES.includes(value.cloudSaveProtectionMode) &&
     (value.lastAutoCloudSaveAt === undefined || isTimestampString(value.lastAutoCloudSaveAt)) &&
     (value.lastBackupAt === undefined || isDateString(value.lastBackupAt)) &&
     isBoolean(value.backupReminderEnabled) &&
@@ -322,6 +361,8 @@ export const validateSaveData = (data: unknown): data is AppData => {
     data.schemaVersion === SCHEMA_VERSION &&
     Array.isArray(data.tasks) &&
     data.tasks.every(isTask) &&
+    Array.isArray(data.projects) &&
+    data.projects.every(isProject) &&
     Array.isArray(data.recurringTasks) &&
     data.recurringTasks.every(isRecurringTask) &&
     Array.isArray(data.longTermGoals) &&
@@ -358,7 +399,7 @@ export const migrateSaveData = (data: unknown): AppData | null => {
 
   const sourceVersion = Number(data.schemaVersion)
 
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, SCHEMA_VERSION].includes(sourceVersion)) {
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, SCHEMA_VERSION].includes(sourceVersion)) {
     return null
   }
 
@@ -401,6 +442,11 @@ export const migrateSaveData = (data: unknown): AppData | null => {
       ? settingsSource.autoCloudSaveEnabled
       : true,
     autoCloudSaveIntervalMinutes: normalizeAutoCloudSaveInterval(settingsSource.autoCloudSaveIntervalMinutes),
+    cloudSaveProtectionMode:
+      isString(settingsSource.cloudSaveProtectionMode) &&
+      CLOUD_SAVE_PROTECTION_MODE_VALUES.includes(settingsSource.cloudSaveProtectionMode)
+        ? (settingsSource.cloudSaveProtectionMode as Settings['cloudSaveProtectionMode'])
+        : 'standard',
     lastAutoCloudSaveAt: isTimestampString(settingsSource.lastAutoCloudSaveAt)
       ? settingsSource.lastAutoCloudSaveAt
       : undefined,
@@ -443,12 +489,44 @@ export const migrateSaveData = (data: unknown): AppData | null => {
             : 'normal',
         completed: task.completed,
         sortOrder: isNumber(task.sortOrder) ? task.sortOrder : undefined,
+        projectId: normalizeOptionalString(task.projectId),
+        parentTaskId: normalizeOptionalString(task.parentTaskId),
+        plannedStartDate: isDateString(task.plannedStartDate) ? task.plannedStartDate : undefined,
+        plannedEndDate: isDateString(task.plannedEndDate) ? task.plannedEndDate : undefined,
         createdAt: normalizeTimestamp(task.createdAt, timestamp),
         updatedAt: normalizeTimestamp(task.updatedAt, timestamp),
         ...normalizeSyncMetadata(task),
       }
     })
     .filter((task): task is Task => Boolean(task))
+
+  const projects: Project[] = asRecordArray(data.projects)
+    .map((project): Project | null => {
+      if (
+        !isString(project.id) ||
+        !isString(project.title) ||
+        !isString(project.status) ||
+        !PROJECT_STATUS_VALUES.includes(project.status) ||
+        !isDateString(project.plannedStartDate) ||
+        !isDateString(project.plannedEndDate) ||
+        project.plannedStartDate > project.plannedEndDate
+      ) {
+        return null
+      }
+
+      return {
+        id: project.id,
+        title: project.title,
+        status: project.status as Project['status'],
+        plannedStartDate: project.plannedStartDate,
+        plannedEndDate: project.plannedEndDate,
+        description: normalizeOptionalString(project.description),
+        createdAt: normalizeTimestamp(project.createdAt, timestamp),
+        updatedAt: normalizeTimestamp(project.updatedAt, timestamp),
+        ...normalizeSyncMetadata(project),
+      }
+    })
+    .filter((project): project is Project => Boolean(project))
 
   const recurringTasks: RecurringTask[] = asRecordArray(data.recurringTasks)
     .map((task): RecurringTask | null => {
@@ -545,6 +623,7 @@ export const migrateSaveData = (data: unknown): AppData | null => {
   const migrated: AppData = {
     schemaVersion: SCHEMA_VERSION,
     tasks,
+    projects,
     recurringTasks,
     longTermGoals,
     settings,

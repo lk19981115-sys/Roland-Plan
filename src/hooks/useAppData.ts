@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type {
   AppData,
   LongTermGoalDraft,
+  ProjectDraft,
   RecurringTaskDraft,
   Settings,
   TaskDraft,
@@ -20,6 +21,9 @@ export interface AppActions {
   reorderTask: (id: string, targetDate: string, beforeTaskId?: string) => void
   postponeTaskToTomorrow: (id: string) => void
   postponeTasksToTomorrow: (ids: string[]) => void
+  addProject: (draft: ProjectDraft) => void
+  updateProject: (id: string, draft: Partial<ProjectDraft>) => void
+  deleteProject: (id: string) => void
   addRecurringTask: (draft: RecurringTaskDraft) => void
   updateRecurringTask: (id: string, draft: Partial<RecurringTaskDraft>) => void
   deleteRecurringTask: (id: string) => void
@@ -137,6 +141,9 @@ export const useAppData = (
         const tomorrow = addDaysISO(getTodayISO(), 1)
         run((repo) => repo.moveTasksToDate(ids, tomorrow))
       },
+      addProject: (draft) => run((repo) => repo.createProject(draft)),
+      updateProject: (id, draft) => run((repo) => repo.updateProject(id, draft)),
+      deleteProject: (id) => run((repo) => repo.deleteProject(id)),
       addRecurringTask: (draft) => run((repo) => repo.createRecurringTask(draft)),
       updateRecurringTask: (id, draft) => run((repo) => repo.updateRecurringTask(id, draft)),
       deleteRecurringTask: (id) => run((repo) => repo.deleteRecurringTask(id)),
